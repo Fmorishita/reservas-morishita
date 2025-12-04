@@ -1,0 +1,4 @@
+project_id = "sgstjcnjhkpurzlsyphe"
+
+[functions.extract-reservation]
+verify_jwt = false
