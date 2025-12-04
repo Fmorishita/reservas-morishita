@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Calendar, Plus, Lock, List } from "lucide-react";
+import { Calendar, Plus, Lock, List, Camera } from "lucide-react";
 import morishitaLogo from "@/assets/morishita-logo.png";
 
 const navItems = [
   { to: "/", icon: Calendar, label: "Agenda" },
   { to: "/nueva", icon: Plus, label: "Nueva" },
+  { to: "/desde-imagen", icon: Camera, label: "Foto" },
   { to: "/bloqueos", icon: Lock, label: "Bloqueos" },
   { to: "/lista", icon: List, label: "Lista" },
 ];

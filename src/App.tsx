@@ -9,6 +9,7 @@ import NuevaReservacion from "./pages/NuevaReservacion";
 import EditarReservacion from "./pages/EditarReservacion";
 import Bloqueos from "./pages/Bloqueos";
 import ListaReservaciones from "./pages/ListaReservaciones";
+import ReservacionDesdeImagen from "./pages/ReservacionDesdeImagen";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
             <Route path="/nueva" element={<NuevaReservacion />} />
+            <Route path="/desde-imagen" element={<ReservacionDesdeImagen />} />
             <Route path="/editar/:id" element={<EditarReservacion />} />
             <Route path="/bloqueos" element={<Bloqueos />} />
             <Route path="/lista" element={<ListaReservaciones />} />
