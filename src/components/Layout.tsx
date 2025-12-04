@@ -1,11 +1,6 @@
-import { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { Calendar, Plus, Lock, List } from "lucide-react";
 import morishitaLogo from "@/assets/morishita-logo.png";
-
-interface LayoutProps {
-  children: ReactNode;
-}
 
 const navItems = [
   { to: "/", icon: Calendar, label: "Agenda" },
@@ -14,7 +9,7 @@ const navItems = [
   { to: "/lista", icon: List, label: "Lista" },
 ];
 
-export function Layout({ children }: LayoutProps) {
+export function Layout() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -26,7 +21,7 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main content */}
       <main className="flex-1 container py-4 pb-20 md:pb-6">
-        {children}
+        <Outlet />
       </main>
 
       {/* Bottom navigation (mobile) */}
