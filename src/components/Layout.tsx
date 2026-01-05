@@ -1,6 +1,16 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { Calendar, Plus, Lock, List, Camera } from "lucide-react";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Calendar, Plus, Lock, List, Camera, LogOut } from "lucide-react";
 import morishitaLogo from "@/assets/morishita-logo.png";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { toast } from "@/hooks/use-toast";
 
 const navItems = [
   { to: "/", icon: Calendar, label: "Agenda" },
@@ -11,12 +21,60 @@ const navItems = [
 ];
 
 export function Layout() {
+  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo cerrar sesión",
+        variant: "destructive",
+      });
+    } else {
+      navigate("/auth");
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border glass">
-        <div className="container flex items-center justify-center h-14 md:h-16">
+        <div className="container flex items-center justify-between h-14 md:h-16">
+          <div className="w-10" /> {/* Spacer for centering */}
           <img src={morishitaLogo} alt="Morishita" className="h-8 md:h-10" />
+          
+          {/* User menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="text-xs bg-secondary">
+                    {profile?.full_name ? getInitials(profile.full_name) : "?"}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <div className="px-2 py-1.5 text-sm font-medium truncate">
+                {profile?.full_name || "Usuario"}
+              </div>
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <LogOut className="w-4 h-4 mr-2" />
+                Cerrar Sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 

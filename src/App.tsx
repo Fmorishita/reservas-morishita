@@ -4,12 +4,14 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/Layout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import NuevaReservacion from "./pages/NuevaReservacion";
 import EditarReservacion from "./pages/EditarReservacion";
 import Bloqueos from "./pages/Bloqueos";
 import ListaReservaciones from "./pages/ListaReservaciones";
 import ReservacionDesdeImagen from "./pages/ReservacionDesdeImagen";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,7 +24,15 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route element={<Layout />}>
+          {/* Public auth route */}
+          <Route path="/auth" element={<Auth />} />
+          
+          {/* Protected routes */}
+          <Route element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>
             <Route path="/" element={<Index />} />
             <Route path="/nueva" element={<NuevaReservacion />} />
             <Route path="/desde-imagen" element={<ReservacionDesdeImagen />} />
@@ -30,6 +40,7 @@ const App = () => (
             <Route path="/bloqueos" element={<Bloqueos />} />
             <Route path="/lista" element={<ListaReservaciones />} />
           </Route>
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
