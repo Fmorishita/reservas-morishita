@@ -412,7 +412,6 @@ export default function ReservacionDesdeImagen() {
                   <input
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     onChange={handleFileInput}
                     className="hidden"
                   />
