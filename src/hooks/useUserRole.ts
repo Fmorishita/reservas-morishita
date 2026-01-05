@@ -15,19 +15,30 @@ export function useUserRole(userId: string | undefined) {
     }
 
     setIsLoading(true);
-    
+
+    // 1) Fast-path: try reading role row (works when user can SELECT their row)
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
-    if (!error && data) {
+    if (!error && data?.role) {
       setRole(data.role as AppRole);
-    } else {
-      setRole(null);
+      setIsLoading(false);
+      return;
     }
-    
+
+    // 2) Fallback: use SECURITY DEFINER RPC (more reliable with RLS)
+    const [{ data: isAdmin }, { data: isStaff }] = await Promise.all([
+      supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+      supabase.rpc("has_role", { _user_id: userId, _role: "staff" }),
+    ]);
+
+    if (isAdmin) setRole("admin");
+    else if (isStaff) setRole("staff");
+    else setRole(null);
+
     setIsLoading(false);
   }, [userId]);
 
