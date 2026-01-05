@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
+import { StaffRoute } from "@/components/StaffRoute";
 import Index from "./pages/Index";
 import NuevaReservacion from "./pages/NuevaReservacion";
 import EditarReservacion from "./pages/EditarReservacion";
@@ -44,9 +45,9 @@ const App = () => (
             <Route
               path="/bloqueos"
               element={
-                <AdminRoute>
+                <StaffRoute>
                   <Bloqueos />
-                </AdminRoute>
+                </StaffRoute>
               }
             />
             <Route path="/lista" element={<ListaReservaciones />} />
