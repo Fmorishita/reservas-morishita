@@ -14,11 +14,16 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
 
-const navItems = [
+const navItems: Array<{
+  to: string;
+  icon: typeof Calendar;
+  label: string;
+  requiresAdmin?: boolean;
+}> = [
   { to: "/", icon: Calendar, label: "Agenda" },
   { to: "/nueva", icon: Plus, label: "Nueva" },
   { to: "/desde-imagen", icon: Camera, label: "Foto" },
-  { to: "/bloqueos", icon: Lock, label: "Bloqueos" },
+  { to: "/bloqueos", icon: Lock, label: "Bloqueos", requiresAdmin: true },
   { to: "/lista", icon: List, label: "Lista" },
 ];
 
@@ -26,6 +31,8 @@ export function Layout() {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
   const { isAdmin } = useUserRole(user?.id);
+
+  const visibleNavItems = navItems.filter((item) => !item.requiresAdmin || isAdmin);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -96,7 +103,7 @@ export function Layout() {
       {/* Bottom navigation (mobile) */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border glass md:hidden">
         <div className="flex items-center justify-around h-16">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {visibleNavItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
@@ -118,7 +125,7 @@ export function Layout() {
       {/* Desktop navigation */}
       <nav className="hidden md:block fixed top-14 left-0 right-0 z-40 border-b border-border glass">
         <div className="container flex items-center justify-center gap-8 h-12">
-          {navItems.map(({ to, icon: Icon, label }) => (
+          {visibleNavItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
