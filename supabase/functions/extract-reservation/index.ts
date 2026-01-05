@@ -1,9 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation constants
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB max
+const VALID_IMAGE_PREFIXES = [
+  "data:image/jpeg",
+  "data:image/png",
+  "data:image/gif",
+  "data:image/webp",
+  "data:image/jpg",
+];
 
 const SYSTEM_PROMPT = `Eres un asistente especializado en extraer información de reservaciones de restaurante desde imágenes.
 
@@ -28,6 +39,67 @@ Reglas importantes:
 
 Responde SOLO con un objeto JSON válido, sin markdown ni explicaciones adicionales.`;
 
+// Validate base64 image data
+function validateImageData(imageBase64: string): { valid: boolean; error?: string } {
+  // Check if it has a valid data URL prefix
+  const hasValidPrefix = VALID_IMAGE_PREFIXES.some(prefix => 
+    imageBase64.toLowerCase().startsWith(prefix)
+  );
+  
+  if (!hasValidPrefix && !imageBase64.match(/^[A-Za-z0-9+/=]+$/)) {
+    return { valid: false, error: "Formato de imagen no válido" };
+  }
+  
+  // Calculate approximate size (base64 is ~33% larger than binary)
+  const base64Data = imageBase64.includes(',') 
+    ? imageBase64.split(',')[1] 
+    : imageBase64;
+  
+  const estimatedSize = (base64Data.length * 3) / 4;
+  
+  if (estimatedSize > MAX_IMAGE_SIZE_BYTES) {
+    return { valid: false, error: "La imagen es demasiado grande (máximo 5MB)" };
+  }
+  
+  if (base64Data.length < 100) {
+    return { valid: false, error: "La imagen parece estar vacía o corrupta" };
+  }
+  
+  return { valid: true };
+}
+
+// Verify user authentication
+async function verifyAuth(req: Request): Promise<{ authenticated: boolean; userId?: string; error?: string }> {
+  const authHeader = req.headers.get("Authorization");
+  
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return { authenticated: false, error: "Se requiere autenticación" };
+  }
+  
+  const token = authHeader.replace("Bearer ", "");
+  
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Missing Supabase configuration");
+    return { authenticated: false, error: "Error de configuración del servidor" };
+  }
+  
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  
+  const { data: { user }, error } = await supabase.auth.getUser();
+  
+  if (error || !user) {
+    console.error("Auth verification failed:", error?.message);
+    return { authenticated: false, error: "Sesión inválida o expirada" };
+  }
+  
+  return { authenticated: true, userId: user.id };
+}
+
 serve(async (req) => {
   console.log("Extract reservation function called");
   
@@ -36,12 +108,42 @@ serve(async (req) => {
   }
 
   try {
-    const { imageBase64 } = await req.json();
-    
-    if (!imageBase64) {
-      console.error("No image provided");
+    // Verify authentication
+    const authResult = await verifyAuth(req);
+    if (!authResult.authenticated) {
       return new Response(
-        JSON.stringify({ error: "No se proporcionó una imagen" }),
+        JSON.stringify({ error: authResult.error }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    console.log("User authenticated:", authResult.userId);
+
+    // Parse and validate request body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Solicitud inválida" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const { imageBase64 } = requestBody;
+    
+    if (!imageBase64 || typeof imageBase64 !== "string") {
+      return new Response(
+        JSON.stringify({ error: "No se proporcionó una imagen válida" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate image data
+    const validation = validateImageData(imageBase64);
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ error: validation.error }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -50,7 +152,7 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) {
       console.error("LOVABLE_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "API key no configurada" }),
+        JSON.stringify({ error: "Error de configuración del servidor" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -92,19 +194,19 @@ serve(async (req) => {
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Límite de solicitudes excedido. Intenta de nuevo en unos momentos." }),
+          JSON.stringify({ error: "Servicio temporalmente no disponible. Intenta de nuevo en unos momentos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Créditos agotados. Agrega créditos a tu workspace." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "Servicio no disponible temporalmente." }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
       return new Response(
-        JSON.stringify({ error: "Error al procesar la imagen con IA" }),
+        JSON.stringify({ error: "Error al procesar la imagen" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -127,14 +229,11 @@ serve(async (req) => {
       // Remove markdown code blocks if present
       const cleanContent = aiContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       extractedData = JSON.parse(cleanContent);
-      console.log("Extracted data:", extractedData);
+      console.log("Extracted data successfully");
     } catch (parseError) {
-      console.error("Failed to parse AI response:", aiContent);
+      console.error("Failed to parse AI response");
       return new Response(
-        JSON.stringify({ 
-          error: "No se pudo interpretar la información extraída",
-          rawContent: aiContent 
-        }),
+        JSON.stringify({ error: "No se pudo interpretar la información de la imagen" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -146,7 +245,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in extract-reservation function:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Error desconocido" }),
+      JSON.stringify({ error: "Error al procesar la solicitud" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

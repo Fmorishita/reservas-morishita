@@ -69,11 +69,26 @@ export default function ReservacionDesdeImagen() {
     setErrors([]);
     
     try {
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Autenticación requerida",
+          description: "Debes iniciar sesión para usar esta función.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("extract-reservation", {
         body: { imageBase64: image },
       });
 
       if (error) {
+        // Handle specific error cases
+        if (error.message?.includes("401") || error.message?.includes("autenticación")) {
+          throw new Error("Sesión expirada. Por favor, inicia sesión de nuevo.");
+        }
         throw new Error(error.message || "Error al procesar la imagen");
       }
 
