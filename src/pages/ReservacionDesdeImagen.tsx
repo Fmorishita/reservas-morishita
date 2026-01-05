@@ -1,37 +1,54 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, parse, isValid, isSaturday, isSunday, isPast, startOfDay } from "date-fns";
+import { format, parse, isValid, isSaturday, isSunday, isPast, startOfDay, getDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { Upload, Camera, X, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Upload, Camera, X, Loader2, AlertTriangle, CheckCircle2, XCircle, AlertCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ReservationForm } from "@/components/ReservationForm";
 import { useReservations } from "@/hooks/useReservations";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { TimeSlot, MenuType, ReservationStatus } from "@/types/reservation";
+import { TimeSlot, MenuType, ReservationStatus, MAX_CAPACITY } from "@/types/reservation";
+import { Badge } from "@/components/ui/badge";
 
 interface ExtractedData {
   fecha?: string;
+  dia_mencionado?: string;
+  dia_real?: string;
   horario?: string;
+  horario_solicitado?: string;
   numero_personas?: number;
   nombre_cliente?: string;
   whatsapp?: string;
   motivo_visita?: string;
   tipo_menu?: string;
   alergias?: string;
-  errores?: string[];
+  advertencias?: string[];
+  errores?: string[]; // Legacy support
 }
+
+interface ValidationResult {
+  canProceed: boolean;
+  warnings: string[];
+  errors: string[];
+  capacityInfo?: {
+    available: number;
+    requested: number;
+  };
+}
+
+const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
 export default function ReservacionDesdeImagen() {
   const navigate = useNavigate();
-  const { addReservation, canAddReservation } = useReservations();
+  const { addReservation, canAddReservation, getCapacityForSlot, isSlotBlocked, isLoading: reservationsLoading } = useReservations();
   
   const [image, setImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
-  const [errors, setErrors] = useState<string[]>([]);
+  const [showValidation, setShowValidation] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,7 +58,7 @@ export default function ReservacionDesdeImagen() {
     reader.onload = (e) => {
       setImage(e.target?.result as string);
       setExtractedData(null);
-      setErrors([]);
+      setShowValidation(false);
       setShowForm(false);
     };
     reader.readAsDataURL(file);
@@ -61,50 +78,6 @@ export default function ReservacionDesdeImagen() {
       handleImageSelect(file);
     }
   }, [handleImageSelect]);
-
-  const processImage = async () => {
-    if (!image) return;
-    
-    setIsProcessing(true);
-    setErrors([]);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke("extract-reservation", {
-        body: { imageBase64: image },
-      });
-
-      if (error) {
-        throw new Error(error.message || "Error al procesar la imagen");
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || "No se pudo extraer información");
-      }
-
-      const extracted = data.data as ExtractedData;
-      setExtractedData(extracted);
-      
-      if (extracted.errores && extracted.errores.length > 0) {
-        setErrors(extracted.errores);
-      }
-      
-      setShowForm(true);
-      
-      toast({
-        title: "Imagen procesada",
-        description: "Se ha extraído la información. Por favor revisa y confirma los datos.",
-      });
-    } catch (err) {
-      console.error("Error processing image:", err);
-      toast({
-        title: "Error",
-        description: err instanceof Error ? err.message : "Error al procesar la imagen",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   const parseExtractedDate = (dateStr?: string): Date | undefined => {
     if (!dateStr) return undefined;
@@ -140,13 +113,13 @@ export default function ReservacionDesdeImagen() {
     
     const normalized = time.toLowerCase().replace(/\s/g, "");
     
-    if (normalized.includes("13:00") || normalized.includes("1:00pm") || normalized.includes("1pm") || normalized.includes("comida")) {
+    if (normalized === "comida" || normalized.includes("13:00") || normalized.includes("1:00pm") || normalized.includes("1pm")) {
       return "COMIDA";
     }
-    if (normalized.includes("15:30") || normalized.includes("3:30pm") || normalized.includes("330pm") || normalized.includes("tarde")) {
+    if (normalized === "tarde" || normalized.includes("15:30") || normalized.includes("3:30pm") || normalized.includes("330pm")) {
       return "TARDE";
     }
-    if (normalized.includes("18:00") || normalized.includes("6:00pm") || normalized.includes("6pm") || normalized.includes("cena")) {
+    if (normalized === "cena" || normalized.includes("18:00") || normalized.includes("6:00pm") || normalized.includes("6pm")) {
       return "CENA";
     }
     
@@ -162,6 +135,146 @@ export default function ReservacionDesdeImagen() {
     }
     return "Omakase 12 tiempos";
   };
+
+  // Perform complete validation of extracted data
+  const validateExtractedData = useCallback((data: ExtractedData): ValidationResult => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Add AI-detected warnings
+    if (data.advertencias && data.advertencias.length > 0) {
+      warnings.push(...data.advertencias);
+    }
+    
+    // Legacy support for errores field
+    if (data.errores && data.errores.length > 0) {
+      warnings.push(...data.errores);
+    }
+
+    const parsedDate = parseExtractedDate(data.fecha);
+    const timeSlot = normalizeTimeSlot(data.horario);
+    const personas = data.numero_personas || 0;
+
+    // Check if date is valid
+    if (!parsedDate) {
+      errors.push("No se pudo identificar una fecha válida");
+    } else {
+      const fechaStr = format(parsedDate, "yyyy-MM-dd");
+      const dayOfWeek = getDay(parsedDate);
+      const diaReal = DIAS_SEMANA[dayOfWeek];
+
+      // Check if it's weekend
+      if (!isSaturday(parsedDate) && !isSunday(parsedDate)) {
+        errors.push(`La fecha ${format(parsedDate, "d 'de' MMMM", { locale: es })} cae en ${diaReal}. Solo abrimos sábados y domingos.`);
+      }
+
+      // Check if it's in the past
+      if (isPast(startOfDay(parsedDate)) && startOfDay(parsedDate) < startOfDay(new Date())) {
+        errors.push("La fecha es en el pasado");
+      }
+
+      // Check day mismatch
+      if (data.dia_mencionado && data.dia_real) {
+        const mencionado = data.dia_mencionado.toLowerCase();
+        const real = data.dia_real.toLowerCase();
+        if (mencionado !== real && !mencionado.includes(real) && !real.includes(mencionado)) {
+          warnings.push(`⚠️ El cliente dice "${data.dia_mencionado}" pero el ${format(parsedDate, "d 'de' MMMM", { locale: es })} es ${data.dia_real}`);
+        }
+      }
+
+      // Check time slot and capacity
+      if (timeSlot) {
+        // Check if slot is blocked
+        if (isSlotBlocked(fechaStr, timeSlot)) {
+          errors.push(`El horario de ${timeSlot} para el ${format(parsedDate, "d 'de' MMMM", { locale: es })} está bloqueado`);
+        } else if (personas > 0) {
+          // Check capacity
+          const currentCapacity = getCapacityForSlot(fechaStr, timeSlot);
+          const available = MAX_CAPACITY - currentCapacity;
+          
+          if (personas > available) {
+            if (available === 0) {
+              errors.push(`No hay lugares disponibles para la sesión de ${timeSlot} el ${format(parsedDate, "d 'de' MMMM", { locale: es })}`);
+            } else {
+              errors.push(`Solo hay ${available} lugar${available === 1 ? '' : 'es'} disponible${available === 1 ? '' : 's'} para esa sesión, pero solicitan ${personas} personas`);
+            }
+          }
+        }
+      }
+    }
+
+    // Check time slot
+    if (!timeSlot) {
+      if (data.horario_solicitado) {
+        errors.push(`El horario "${data.horario_solicitado}" no corresponde a ninguna sesión. Nuestros horarios: 1pm (COMIDA), 3:30pm (TARDE), 6pm (CENA)`);
+      } else {
+        errors.push("No se identificó un horario válido");
+      }
+    }
+
+    // Check number of people
+    if (personas > 4) {
+      errors.push(`El cliente solicita ${personas} personas pero el máximo es 4`);
+    } else if (personas < 1) {
+      warnings.push("No se identificó el número de personas");
+    }
+
+    // Check client name
+    if (!data.nombre_cliente) {
+      warnings.push("No se identificó el nombre del cliente");
+    }
+
+    return {
+      canProceed: errors.length === 0,
+      warnings,
+      errors,
+      capacityInfo: parsedDate && timeSlot ? {
+        available: MAX_CAPACITY - getCapacityForSlot(format(parsedDate, "yyyy-MM-dd"), timeSlot),
+        requested: personas
+      } : undefined
+    };
+  }, [getCapacityForSlot, isSlotBlocked]);
+
+  const processImage = async () => {
+    if (!image) return;
+    
+    setIsProcessing(true);
+    setShowValidation(false);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-reservation", {
+        body: { imageBase64: image },
+      });
+
+      if (error) {
+        throw new Error(error.message || "Error al procesar la imagen");
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || "No se pudo extraer información");
+      }
+
+      const extracted = data.data as ExtractedData;
+      setExtractedData(extracted);
+      setShowValidation(true);
+      
+    } catch (err) {
+      console.error("Error processing image:", err);
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Error al procesar la imagen",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Compute validation result from extracted data
+  const validationResult = useMemo(() => {
+    if (!extractedData || reservationsLoading) return null;
+    return validateExtractedData(extractedData);
+  }, [extractedData, validateExtractedData, reservationsLoading]);
 
   const getInitialFormData = () => {
     if (!extractedData) return undefined;
@@ -186,6 +299,11 @@ export default function ReservacionDesdeImagen() {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+  };
+
+  const handleProceedToForm = () => {
+    setShowValidation(false);
+    setShowForm(true);
   };
 
   const handleSubmit = async (data: any) => {
@@ -244,8 +362,14 @@ export default function ReservacionDesdeImagen() {
   const clearImage = () => {
     setImage(null);
     setExtractedData(null);
-    setErrors([]);
+    setShowValidation(false);
     setShowForm(false);
+  };
+
+  const resetToUpload = () => {
+    setShowValidation(false);
+    setShowForm(false);
+    setExtractedData(null);
   };
 
   return (
@@ -257,9 +381,9 @@ export default function ReservacionDesdeImagen() {
         </p>
       </div>
 
-      {!showForm ? (
+      {/* Step 1: Upload image */}
+      {!showValidation && !showForm && (
         <>
-          {/* Image upload area */}
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               {image ? (
@@ -303,7 +427,6 @@ export default function ReservacionDesdeImagen() {
             </CardContent>
           </Card>
 
-          {/* Process button */}
           {image && (
             <Button
               onClick={processImage}
@@ -314,18 +437,17 @@ export default function ReservacionDesdeImagen() {
               {isProcessing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Procesando imagen...
+                  Analizando imagen...
                 </>
               ) : (
                 <>
                   <Camera className="w-4 h-4" />
-                  Extraer información
+                  Analizar y verificar
                 </>
               )}
             </Button>
           )}
 
-          {/* Camera button for mobile */}
           {!image && (
             <label className="block">
               <Button variant="outline" className="w-full gap-2" asChild>
@@ -344,44 +466,78 @@ export default function ReservacionDesdeImagen() {
             </label>
           )}
         </>
-      ) : (
-        <>
-          {/* Extracted info preview */}
-          {extractedData && (
-            <Card className="bg-secondary/50">
-              <CardContent className="pt-4 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <CheckCircle2 className="w-4 h-4 text-success" />
-                  Información extraída de la imagen
-                </div>
-                
-                {/* Show thumbnail */}
-                {image && (
-                  <div className="flex gap-3 items-start">
-                    <img
-                      src={image}
-                      alt="Imagen procesada"
-                      className="w-16 h-16 object-cover rounded-md border"
-                    />
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      {extractedData.fecha && <p>📅 {extractedData.fecha}</p>}
-                      {extractedData.horario && <p>⏰ {extractedData.horario}</p>}
-                      {extractedData.nombre_cliente && <p>👤 {extractedData.nombre_cliente}</p>}
-                      {extractedData.numero_personas && <p>👥 {extractedData.numero_personas} personas</p>}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+      )}
 
-          {/* Warnings */}
-          {errors.length > 0 && (
+      {/* Step 2: Show validation results */}
+      {showValidation && extractedData && validationResult && (
+        <>
+          {/* Extracted data summary */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Info className="w-4 h-4" />
+                Información extraída
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-3 items-start">
+                {image && (
+                  <img
+                    src={image}
+                    alt="Imagen procesada"
+                    className="w-20 h-20 object-cover rounded-md border"
+                  />
+                )}
+                <div className="text-sm space-y-1 flex-1">
+                  {extractedData.fecha && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Fecha:</span>
+                      <span className="font-medium">{extractedData.fecha}</span>
+                      {extractedData.dia_mencionado && (
+                        <Badge variant="outline" className="text-xs">
+                          dice "{extractedData.dia_mencionado}"
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                  {(extractedData.horario_solicitado || extractedData.horario) && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Horario:</span>
+                      <span className="font-medium">
+                        {extractedData.horario_solicitado || extractedData.horario}
+                      </span>
+                      {extractedData.horario && extractedData.horario_solicitado && (
+                        <Badge variant="secondary" className="text-xs">
+                          → {extractedData.horario}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                  {extractedData.nombre_cliente && (
+                    <div>
+                      <span className="text-muted-foreground">Cliente:</span>{" "}
+                      <span className="font-medium">{extractedData.nombre_cliente}</span>
+                    </div>
+                  )}
+                  {extractedData.numero_personas && (
+                    <div>
+                      <span className="text-muted-foreground">Personas:</span>{" "}
+                      <span className="font-medium">{extractedData.numero_personas}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Errors - blocking */}
+          {validationResult.errors.length > 0 && (
             <Alert variant="destructive">
-              <AlertTriangle className="w-4 h-4" />
+              <XCircle className="w-4 h-4" />
+              <AlertTitle>No se puede agendar</AlertTitle>
               <AlertDescription>
-                <ul className="list-disc list-inside text-sm">
-                  {errors.map((error, i) => (
+                <ul className="list-disc list-inside text-sm mt-2 space-y-1">
+                  {validationResult.errors.map((error, i) => (
                     <li key={i}>{error}</li>
                   ))}
                 </ul>
@@ -389,15 +545,92 @@ export default function ReservacionDesdeImagen() {
             </Alert>
           )}
 
-          {/* Pre-filled form */}
+          {/* Warnings - non-blocking but important */}
+          {validationResult.warnings.length > 0 && (
+            <Alert className="border-yellow-500/50 bg-yellow-500/10">
+              <AlertTriangle className="w-4 h-4 text-yellow-600" />
+              <AlertTitle className="text-yellow-700">Revisar antes de agendar</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc list-inside text-sm mt-2 space-y-1 text-yellow-800">
+                  {validationResult.warnings.map((warning, i) => (
+                    <li key={i}>{warning}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Success - all good */}
+          {validationResult.canProceed && validationResult.warnings.length === 0 && (
+            <Alert className="border-green-500/50 bg-green-500/10">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              <AlertTitle className="text-green-700">¡Todo en orden!</AlertTitle>
+              <AlertDescription className="text-green-800">
+                La información fue verificada y no hay conflictos.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={resetToUpload}
+              className="flex-1"
+            >
+              Subir otra imagen
+            </Button>
+            
+            {validationResult.canProceed ? (
+              <Button
+                onClick={handleProceedToForm}
+                className="flex-1 gap-2"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Continuar a agendar
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={handleProceedToForm}
+                className="flex-1 gap-2"
+              >
+                <AlertCircle className="w-4 h-4" />
+                Editar datos manualmente
+              </Button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Step 3: Edit and confirm form */}
+      {showForm && extractedData && (
+        <>
+          <Card className="bg-secondary/30">
+            <CardContent className="pt-4">
+              <div className="flex gap-3 items-center">
+                {image && (
+                  <img
+                    src={image}
+                    alt="Imagen procesada"
+                    className="w-12 h-12 object-cover rounded-md border"
+                  />
+                )}
+                <div className="text-sm text-muted-foreground">
+                  <p>Revisa y corrige los datos si es necesario</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div>
-            <h2 className="text-lg font-medium mb-4">Revisa y confirma los datos</h2>
+            <h2 className="text-lg font-medium mb-4">Confirmar reservación</h2>
             <ReservationForm
               initialData={getInitialFormData()}
               onSubmit={handleSubmit}
               onCancel={() => {
                 setShowForm(false);
-                setExtractedData(null);
+                setShowValidation(true);
               }}
               validationError={validationError}
               isSubmitting={isSubmitting}
