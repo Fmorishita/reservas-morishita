@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/AdminRoute";
 import Index from "./pages/Index";
 import NuevaReservacion from "./pages/NuevaReservacion";
 import EditarReservacion from "./pages/EditarReservacion";
@@ -40,11 +41,25 @@ const App = () => (
             <Route path="/nueva" element={<NuevaReservacion />} />
             <Route path="/desde-imagen" element={<ReservacionDesdeImagen />} />
             <Route path="/editar/:id" element={<EditarReservacion />} />
-            <Route path="/bloqueos" element={<Bloqueos />} />
+            <Route
+              path="/bloqueos"
+              element={
+                <AdminRoute>
+                  <Bloqueos />
+                </AdminRoute>
+              }
+            />
             <Route path="/lista" element={<ListaReservaciones />} />
-            <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+            <Route
+              path="/admin/usuarios"
+              element={
+                <AdminRoute>
+                  <AdminUsuarios />
+                </AdminRoute>
+              }
+            />
           </Route>
-          
+
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

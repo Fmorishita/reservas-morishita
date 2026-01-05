@@ -32,16 +32,24 @@ export function useAuth() {
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Fetch profile when user logs in (deferred to avoid deadlock)
         if (session?.user) {
           setTimeout(() => {
             fetchProfile(session.user.id);
           }, 0);
+
+          // Bootstrap admin (only if the database has zero admins).
+          // Defer to avoid doing Supabase calls inside the auth callback.
+          setTimeout(() => {
+            supabase.functions.invoke("bootstrap-admin").catch(() => {
+              // Silently ignore; authorization is enforced server-side.
+            });
+          }, 0);
         } else {
           setProfile(null);
         }
-        
+
         setIsLoading(false);
       }
     );
@@ -50,11 +58,14 @@ export function useAuth() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
         fetchProfile(session.user.id);
+        supabase.functions.invoke("bootstrap-admin").catch(() => {
+          // ignore
+        });
       }
-      
+
       setIsLoading(false);
     });
 
