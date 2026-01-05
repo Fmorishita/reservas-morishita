@@ -11,6 +11,8 @@ import EditarReservacion from "./pages/EditarReservacion";
 import Bloqueos from "./pages/Bloqueos";
 import ListaReservaciones from "./pages/ListaReservaciones";
 import ReservacionDesdeImagen from "./pages/ReservacionDesdeImagen";
+import AdminUsuarios from "./pages/AdminUsuarios";
+import SetupAdmin from "./pages/SetupAdmin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -24,8 +26,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Public auth route */}
+          {/* Public routes */}
           <Route path="/auth" element={<Auth />} />
+          <Route path="/setup" element={<SetupAdmin />} />
           
           {/* Protected routes */}
           <Route element={
@@ -39,6 +42,7 @@ const App = () => (
             <Route path="/editar/:id" element={<EditarReservacion />} />
             <Route path="/bloqueos" element={<Bloqueos />} />
             <Route path="/lista" element={<ListaReservaciones />} />
+            <Route path="/admin/usuarios" element={<AdminUsuarios />} />
           </Route>
           
           <Route path="*" element={<NotFound />} />
