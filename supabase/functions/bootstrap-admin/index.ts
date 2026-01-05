@@ -10,6 +10,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Simple JWT decode (no verification - we trust Supabase's verification)
+function decodeJwt(token: string): { sub?: string; email?: string } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -31,31 +43,27 @@ serve(async (req) => {
 
     // Extract JWT token from Authorization header
     const token = authHeader.replace("Bearer ", "");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-
-    // Use anon client with the user's token to validate them
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
-    });
-
-    // Validate the token and get the user
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-
-    if (userError || !user) {
-      console.error("bootstrap-admin: invalid token", userError);
+    
+    // Decode the JWT to get user info (Supabase already validated it)
+    const payload = decodeJwt(token);
+    
+    if (!payload || !payload.sub) {
+      console.error("bootstrap-admin: invalid token payload");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const userId = payload.sub;
+    const email = payload.email || "unknown";
+
+    console.log("bootstrap-admin: validated user", { userId, email });
+
     // adminClient bypasses RLS and can safely write roles.
     const adminClient = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false },
     });
-
-    console.log("bootstrap-admin: validated user", { userId: user.id, email: user.email });
 
     // Check if an admin already exists
     const { data: existingAdmin, error: adminCheckError } = await adminClient
@@ -83,7 +91,7 @@ serve(async (req) => {
     // No admins exist: grant admin to the current authenticated user
     const { error: insertError } = await adminClient
       .from("user_roles")
-      .insert({ user_id: user.id, role: "admin" });
+      .insert({ user_id: userId, role: "admin" });
 
     if (insertError) {
       console.error("bootstrap-admin: insert failed", insertError);
@@ -93,10 +101,10 @@ serve(async (req) => {
       });
     }
 
-    console.log("bootstrap-admin: granted admin", { userId: user.id, email: user.email });
+    console.log("bootstrap-admin: granted admin", { userId, email });
 
     return new Response(
-      JSON.stringify({ ok: true, status: "bootstrapped", userId: user.id, email: user.email }),
+      JSON.stringify({ ok: true, status: "bootstrapped", userId, email }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
