@@ -49,7 +49,7 @@ export function DayAgenda({
         <div className="p-6 rounded-lg bg-muted text-center">
           <Lock className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-muted-foreground">
-            {dayBlock?.motivo_bloqueo || "Este día está cerrado"}
+            {dayBlock?.motivo || "Este día está cerrado"}
           </p>
         </div>
       ) : (
@@ -61,7 +61,7 @@ export function DayAgenda({
             const blocked = isSlotBlocked(fecha, value);
             const blockReason = blocks.find(
               (b) => b.horario === value
-            )?.motivo_bloqueo;
+            )?.motivo;
 
             return (
               <TimeSlotCard
@@ -70,7 +70,7 @@ export function DayAgenda({
                 reservations={slotReservations}
                 capacity={getCapacity(fecha, value)}
                 isBlocked={blocked}
-                blockReason={blockReason}
+                blockReason={blockReason || undefined}
                 onReservationClick={onReservationClick}
               />
             );

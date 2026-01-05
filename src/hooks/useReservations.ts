@@ -1,10 +1,66 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Reservation, TimeBlock, TimeSlot, MAX_CAPACITY } from "@/types/reservation";
-import { mockReservations, mockBlocks } from "@/lib/mockData";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 export function useReservations() {
-  const [reservations, setReservations] = useState<Reservation[]>(mockReservations);
-  const [blocks, setBlocks] = useState<TimeBlock[]>(mockBlocks);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [blocks, setBlocks] = useState<TimeBlock[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch initial data
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      try {
+        const [resResult, blockResult] = await Promise.all([
+          supabase.from("reservations").select("*").order("fecha", { ascending: true }),
+          supabase.from("time_blocks").select("*").order("fecha", { ascending: true }),
+        ]);
+
+        if (resResult.error) throw resResult.error;
+        if (blockResult.error) throw blockResult.error;
+
+        setReservations(resResult.data as Reservation[]);
+        setBlocks(blockResult.data as TimeBlock[]);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los datos",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchData();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel("reservations-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reservations" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setReservations((prev) => [...prev, payload.new as Reservation]);
+          } else if (payload.eventType === "UPDATE") {
+            setReservations((prev) =>
+              prev.map((r) => (r.id === payload.new.id ? (payload.new as Reservation) : r))
+            );
+          } else if (payload.eventType === "DELETE") {
+            setReservations((prev) => prev.filter((r) => r.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const getReservationsForSlot = useCallback(
     (fecha: string, horario: TimeSlot) => {
@@ -68,39 +124,64 @@ export function useReservations() {
     [reservations, isSlotBlocked]
   );
 
-  const addReservation = useCallback((reservation: Omit<Reservation, "id" | "created_at" | "updated_at">) => {
-    const newReservation: Reservation = {
-      ...reservation,
-      id: Date.now().toString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    setReservations((prev) => [...prev, newReservation]);
-    return newReservation;
+  const addReservation = useCallback(async (reservation: Omit<Reservation, "id" | "created_at" | "updated_at" | "reminder_24h_shown" | "reminder_2h_shown">) => {
+    const { data, error } = await supabase
+      .from("reservations")
+      .insert([reservation])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding reservation:", error);
+      throw error;
+    }
+
+    return data as Reservation;
   }, []);
 
-  const updateReservation = useCallback((id: string, updates: Partial<Reservation>) => {
-    setReservations((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, ...updates, updated_at: new Date().toISOString() } : r
-      )
-    );
+  const updateReservation = useCallback(async (id: string, updates: Partial<Reservation>) => {
+    const { error } = await supabase
+      .from("reservations")
+      .update(updates)
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error updating reservation:", error);
+      throw error;
+    }
   }, []);
 
-  const cancelReservation = useCallback((id: string) => {
-    updateReservation(id, { estado: "Cancelada" });
+  const cancelReservation = useCallback(async (id: string) => {
+    await updateReservation(id, { estado: "Cancelada" });
   }, [updateReservation]);
 
-  const addBlock = useCallback((block: Omit<TimeBlock, "id">) => {
-    const newBlock: TimeBlock = {
-      ...block,
-      id: Date.now().toString(),
-    };
-    setBlocks((prev) => [...prev, newBlock]);
-    return newBlock;
+  const addBlock = useCallback(async (block: Omit<TimeBlock, "id" | "created_at">) => {
+    const { data, error } = await supabase
+      .from("time_blocks")
+      .insert([block])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding block:", error);
+      throw error;
+    }
+
+    setBlocks((prev) => [...prev, data as TimeBlock]);
+    return data as TimeBlock;
   }, []);
 
-  const removeBlock = useCallback((id: string) => {
+  const removeBlock = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from("time_blocks")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error removing block:", error);
+      throw error;
+    }
+
     setBlocks((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
@@ -111,9 +192,18 @@ export function useReservations() {
     [blocks]
   );
 
+  const markReminderShown = useCallback(async (id: string, type: "24h" | "2h") => {
+    const field = type === "24h" ? "reminder_24h_shown" : "reminder_2h_shown";
+    await supabase
+      .from("reservations")
+      .update({ [field]: true })
+      .eq("id", id);
+  }, []);
+
   return {
     reservations,
     blocks,
+    isLoading,
     getReservationsForSlot,
     getCapacityForSlot,
     isSlotBlocked,
@@ -125,5 +215,6 @@ export function useReservations() {
     addBlock,
     removeBlock,
     getBlocksForDate,
+    markReminderShown,
   };
 }

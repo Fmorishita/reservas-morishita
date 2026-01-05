@@ -21,7 +21,7 @@ interface BlockFormProps {
   onSubmit: (data: {
     fecha: string;
     horario: TimeSlot | "DIA_COMPLETO";
-    motivo_bloqueo: string;
+    motivo: string | null;
   }) => void;
   isSubmitting?: boolean;
 }
@@ -44,7 +44,7 @@ export function BlockForm({ onSubmit, isSubmitting }: BlockFormProps) {
     onSubmit({
       fecha: format(selectedDate, "yyyy-MM-dd"),
       horario,
-      motivo_bloqueo: motivo,
+      motivo: motivo || null,
     });
 
     // Reset form

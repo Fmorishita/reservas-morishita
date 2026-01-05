@@ -20,7 +20,7 @@ interface ExtractedData {
   whatsapp?: string;
   motivo_visita?: string;
   tipo_menu?: string;
-  alergias_restricciones?: string;
+  alergias?: string;
   errores?: string[];
 }
 
@@ -69,26 +69,11 @@ export default function ReservacionDesdeImagen() {
     setErrors([]);
     
     try {
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast({
-          title: "Autenticación requerida",
-          description: "Debes iniciar sesión para usar esta función.",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const { data, error } = await supabase.functions.invoke("extract-reservation", {
         body: { imageBase64: image },
       });
 
       if (error) {
-        // Handle specific error cases
-        if (error.message?.includes("401") || error.message?.includes("autenticación")) {
-          throw new Error("Sesión expirada. Por favor, inicia sesión de nuevo.");
-        }
         throw new Error(error.message || "Error al procesar la imagen");
       }
 
@@ -155,14 +140,14 @@ export default function ReservacionDesdeImagen() {
     
     const normalized = time.toLowerCase().replace(/\s/g, "");
     
-    if (normalized.includes("13:00") || normalized.includes("1:00pm") || normalized.includes("1pm")) {
-      return "13:00";
+    if (normalized.includes("13:00") || normalized.includes("1:00pm") || normalized.includes("1pm") || normalized.includes("comida")) {
+      return "COMIDA";
     }
-    if (normalized.includes("15:30") || normalized.includes("3:30pm") || normalized.includes("330pm")) {
-      return "15:30";
+    if (normalized.includes("15:30") || normalized.includes("3:30pm") || normalized.includes("330pm") || normalized.includes("tarde")) {
+      return "TARDE";
     }
-    if (normalized.includes("18:00") || normalized.includes("6:00pm") || normalized.includes("6pm")) {
-      return "18:00";
+    if (normalized.includes("18:00") || normalized.includes("6:00pm") || normalized.includes("6pm") || normalized.includes("cena")) {
+      return "CENA";
     }
     
     return undefined;
@@ -187,21 +172,23 @@ export default function ReservacionDesdeImagen() {
     return {
       id: "",
       fecha: parsedDate ? format(parsedDate, "yyyy-MM-dd") : "",
-      horario: timeSlot || "13:00",
+      horario: timeSlot || "COMIDA" as TimeSlot,
       numero_personas: Math.min(extractedData.numero_personas || 2, 4),
       nombre_cliente: extractedData.nombre_cliente || "",
       whatsapp: extractedData.whatsapp || "",
-      tipo_menu: normalizeMenuType(extractedData.tipo_menu),
+      tipo_menu: normalizeMenuType(extractedData.tipo_menu) as MenuType,
       motivo_visita: extractedData.motivo_visita || "",
-      alergias_restricciones: extractedData.alergias_restricciones || "",
+      alergias: extractedData.alergias || "",
       estado: "Pendiente" as ReservationStatus,
       notas_internas: "Creada desde imagen 📸",
+      reminder_24h_shown: false,
+      reminder_2h_shown: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
   };
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = async (data: any) => {
     setValidationError("");
     const fecha = format(data.fecha, "yyyy-MM-dd");
 
@@ -227,17 +214,31 @@ export default function ReservacionDesdeImagen() {
 
     setIsSubmitting(true);
 
-    addReservation({
-      ...data,
-      fecha,
-    });
+    try {
+      await addReservation({
+        ...data,
+        fecha,
+        whatsapp: data.whatsapp || null,
+        motivo_visita: data.motivo_visita || null,
+        alergias: data.alergias || null,
+        notas_internas: data.notas_internas || "Creada desde imagen 📸",
+      });
 
-    toast({
-      title: "¡Reservación creada! 📸✨",
-      description: `Reservación para ${data.nombre_cliente} creada automáticamente desde la imagen.`,
-    });
+      toast({
+        title: "¡Reservación creada! 📸✨",
+        description: `Reservación para ${data.nombre_cliente} creada automáticamente desde la imagen.`,
+      });
 
-    navigate("/");
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo crear la reservación",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const clearImage = () => {

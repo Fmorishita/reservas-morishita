@@ -11,7 +11,7 @@ export default function NuevaReservacion() {
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = async (data: any) => {
     setValidationError("");
     const fecha = format(data.fecha, "yyyy-MM-dd");
 
@@ -24,18 +24,31 @@ export default function NuevaReservacion() {
 
     setIsSubmitting(true);
 
-    // Add reservation
-    addReservation({
-      ...data,
-      fecha,
-    });
+    try {
+      await addReservation({
+        ...data,
+        fecha,
+        whatsapp: data.whatsapp || null,
+        motivo_visita: data.motivo_visita || null,
+        alergias: data.alergias || null,
+        notas_internas: data.notas_internas || null,
+      });
 
-    toast({
-      title: "Reservación creada",
-      description: `Reservación para ${data.nombre_cliente} guardada exitosamente.`,
-    });
+      toast({
+        title: "Reservación creada",
+        description: `Reservación para ${data.nombre_cliente} guardada exitosamente.`,
+      });
 
-    navigate("/");
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo crear la reservación",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

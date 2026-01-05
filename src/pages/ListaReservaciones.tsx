@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 
 export default function ListaReservaciones() {
   const navigate = useNavigate();
-  const { reservations } = useReservations();
+  const { reservations, isLoading } = useReservations();
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -49,6 +49,14 @@ export default function ListaReservaciones() {
         return a.horario.localeCompare(b.horario);
       });
   }, [reservations, statusFilter]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <p className="text-muted-foreground">Cargando reservaciones...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 md:pt-14">
@@ -132,7 +140,7 @@ export default function ListaReservaciones() {
                       reservation.estado === "Confirmada" && "border-success text-success",
                       reservation.estado === "Pendiente" && "border-warning text-warning",
                       reservation.estado === "Cancelada" && "border-muted-foreground text-muted-foreground",
-                      reservation.estado === "No show" && "border-destructive text-destructive"
+                      reservation.estado === "Completada" && "border-muted text-muted-foreground"
                     )}
                   >
                     {reservation.estado}

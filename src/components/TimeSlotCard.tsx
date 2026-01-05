@@ -1,8 +1,9 @@
 import { TimeSlot, TIME_SLOTS, MAX_CAPACITY, Reservation } from "@/types/reservation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Users } from "lucide-react";
+import { Lock, Users, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useReminders } from "@/hooks/useReminders";
 
 interface TimeSlotCardProps {
   horario: TimeSlot;
@@ -23,6 +24,7 @@ export function TimeSlotCard({
 }: TimeSlotCardProps) {
   const timeLabel = TIME_SLOTS.find((t) => t.value === horario)?.label || horario;
   const isFull = capacity >= MAX_CAPACITY;
+  const { isWithin24Hours, isWithin2Hours } = useReminders([]);
 
   return (
     <Card
@@ -59,31 +61,51 @@ export function TimeSlotCard({
           <p className="text-sm text-muted-foreground">{blockReason || "Horario no disponible"}</p>
         ) : reservations.length > 0 ? (
           <ul className="space-y-2">
-            {reservations.map((r) => (
-              <li
-                key={r.id}
-                onClick={() => onReservationClick?.(r)}
-                className="flex items-center justify-between p-2 rounded-md bg-secondary cursor-pointer hover:bg-secondary/80 transition-colors"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm truncate">{r.nombre_cliente}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {r.numero_personas} persona{r.numero_personas > 1 ? "s" : ""} · {r.tipo_menu}
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
+            {reservations.map((r) => {
+              const within2h = isWithin2Hours(r);
+              const within24h = isWithin24Hours(r);
+
+              return (
+                <li
+                  key={r.id}
+                  onClick={() => onReservationClick?.(r)}
                   className={cn(
-                    "ml-2 shrink-0 text-xs",
-                    r.estado === "Confirmada" && "border-success text-success",
-                    r.estado === "Pendiente" && "border-warning text-warning",
-                    r.estado === "No show" && "border-destructive text-destructive"
+                    "flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors",
+                    within2h
+                      ? "bg-destructive/10 border border-destructive/30 hover:bg-destructive/15"
+                      : within24h
+                      ? "bg-warning/10 border border-warning/30 hover:bg-warning/15"
+                      : "bg-secondary hover:bg-secondary/80"
                   )}
                 >
-                  {r.estado}
-                </Badge>
-              </li>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm truncate">{r.nombre_cliente}</p>
+                      {within2h && (
+                        <Clock className="w-3 h-3 text-destructive shrink-0" />
+                      )}
+                      {within24h && !within2h && (
+                        <Clock className="w-3 h-3 text-warning shrink-0" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {r.numero_personas} persona{r.numero_personas > 1 ? "s" : ""} · {r.tipo_menu}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "ml-2 shrink-0 text-xs",
+                      r.estado === "Confirmada" && "border-success text-success",
+                      r.estado === "Pendiente" && "border-warning text-warning",
+                      r.estado === "Completada" && "border-muted text-muted-foreground"
+                    )}
+                  >
+                    {r.estado}
+                  </Badge>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-sm text-muted-foreground">Sin reservaciones</p>
