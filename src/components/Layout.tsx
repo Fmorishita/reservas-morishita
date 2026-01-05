@@ -1,12 +1,14 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Calendar, Plus, Lock, List, Camera, LogOut } from "lucide-react";
+import { Calendar, Plus, Lock, List, Camera, LogOut, Shield } from "lucide-react";
 import morishitaLogo from "@/assets/morishita-logo.png";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -22,7 +24,8 @@ const navItems = [
 
 export function Layout() {
   const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
+  const { isAdmin } = useUserRole(user?.id);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -69,6 +72,13 @@ export function Layout() {
               <div className="px-2 py-1.5 text-sm font-medium truncate">
                 {profile?.full_name || "Usuario"}
               </div>
+              <DropdownMenuSeparator />
+              {isAdmin && (
+                <DropdownMenuItem onClick={() => navigate("/admin/usuarios")}>
+                  <Shield className="w-4 h-4 mr-2" />
+                  Administrar Usuarios
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="w-4 h-4 mr-2" />
                 Cerrar Sesión
