@@ -14,7 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      reservations: {
+        Row: {
+          alergias: string | null
+          created_at: string
+          estado: string
+          fecha: string
+          horario: string
+          id: string
+          motivo_visita: string | null
+          nombre_cliente: string
+          notas_internas: string | null
+          numero_personas: number
+          reminder_24h_shown: boolean
+          reminder_2h_shown: boolean
+          tipo_menu: string
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          alergias?: string | null
+          created_at?: string
+          estado?: string
+          fecha: string
+          horario: string
+          id?: string
+          motivo_visita?: string | null
+          nombre_cliente: string
+          notas_internas?: string | null
+          numero_personas: number
+          reminder_24h_shown?: boolean
+          reminder_2h_shown?: boolean
+          tipo_menu?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          alergias?: string | null
+          created_at?: string
+          estado?: string
+          fecha?: string
+          horario?: string
+          id?: string
+          motivo_visita?: string | null
+          nombre_cliente?: string
+          notas_internas?: string | null
+          numero_personas?: number
+          reminder_24h_shown?: boolean
+          reminder_2h_shown?: boolean
+          tipo_menu?: string
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
+      time_blocks: {
+        Row: {
+          created_at: string
+          fecha: string
+          horario: string
+          id: string
+          motivo: string | null
+        }
+        Insert: {
+          created_at?: string
+          fecha: string
+          horario: string
+          id?: string
+          motivo?: string | null
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          horario?: string
+          id?: string
+          motivo?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

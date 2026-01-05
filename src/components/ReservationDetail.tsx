@@ -89,7 +89,7 @@ export function ReservationDetail({
             <div className="flex items-center gap-3 text-sm">
               <Phone className="w-4 h-4 text-muted-foreground" />
               <a href={`tel:${reservation.whatsapp}`} className="text-accent hover:underline">
-                {reservation.whatsapp}
+                {reservation.whatsapp || "No proporcionado"}
               </a>
             </div>
             <div className="flex items-center gap-3 text-sm">
@@ -107,14 +107,14 @@ export function ReservationDetail({
           )}
 
           {/* Allergies */}
-          {reservation.alergias_restricciones && (
+          {reservation.alergias && (
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-warning" />
                 <Label className="text-warning">Alergias / Restricciones</Label>
               </div>
               <p className="text-sm bg-warning/10 p-3 rounded-md">
-                {reservation.alergias_restricciones}
+                {reservation.alergias}
               </p>
             </div>
           )}

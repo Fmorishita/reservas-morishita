@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
+import { Loader2 } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
 import { useReservations } from "@/hooks/useReservations";
 import { toast } from "@/hooks/use-toast";
@@ -8,9 +9,17 @@ import { toast } from "@/hooks/use-toast";
 export default function EditarReservacion() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { reservations, updateReservation, canAddReservation } = useReservations();
+  const { reservations, isLoading, updateReservation, canAddReservation } = useReservations();
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 md:pt-14">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   const reservation = reservations.find((r) => r.id === id);
 
@@ -25,7 +34,7 @@ export default function EditarReservacion() {
     );
   }
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = async (data: any) => {
     setValidationError("");
     const fecha = format(data.fecha, "yyyy-MM-dd");
 
@@ -38,18 +47,31 @@ export default function EditarReservacion() {
 
     setIsSubmitting(true);
 
-    // Update reservation
-    updateReservation(reservation.id, {
-      ...data,
-      fecha,
-    });
+    try {
+      await updateReservation(reservation.id, {
+        ...data,
+        fecha,
+        whatsapp: data.whatsapp || null,
+        motivo_visita: data.motivo_visita || null,
+        alergias: data.alergias || null,
+        notas_internas: data.notas_internas || null,
+      });
 
-    toast({
-      title: "Reservación actualizada",
-      description: `Los cambios han sido guardados.`,
-    });
+      toast({
+        title: "Reservación actualizada",
+        description: `Los cambios han sido guardados.`,
+      });
 
-    navigate("/");
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la reservación",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

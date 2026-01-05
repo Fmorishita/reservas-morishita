@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { format, addWeeks, subWeeks, startOfWeek, addDays, isSaturday, isSunday } from "date-fns";
+import { format, addWeeks, subWeeks, startOfWeek, addDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DayAgenda } from "@/components/DayAgenda";
 import { ReservationDetail } from "@/components/ReservationDetail";
+import { ReminderPanel } from "@/components/ReminderPanel";
 import { useReservations } from "@/hooks/useReservations";
 import { Reservation, ReservationStatus } from "@/types/reservation";
 
@@ -21,11 +22,13 @@ export default function Agenda() {
   const {
     reservations,
     blocks,
+    isLoading,
     getCapacityForSlot,
     isSlotBlocked,
     isDayBlocked,
     updateReservation,
     cancelReservation,
+    markReminderShown,
   } = useReservations();
 
   // Get Saturday and Sunday of current week
@@ -48,13 +51,29 @@ export default function Agenda() {
     navigate(`/editar/${reservation.id}`);
   };
 
-  const handleStatusChange = (id: string, status: ReservationStatus) => {
-    updateReservation(id, { estado: status });
-    setSelectedReservation((prev) => (prev ? { ...prev, estado: status } : null));
+  const handleStatusChange = async (id: string, status: ReservationStatus) => {
+    try {
+      await updateReservation(id, { estado: status });
+      setSelectedReservation((prev) => (prev ? { ...prev, estado: status } : null));
+    } catch (error) {
+      console.error("Error updating status:", error);
+    }
   };
 
-  const handleCancel = (id: string) => {
-    cancelReservation(id);
+  const handleCancel = async (id: string) => {
+    try {
+      await cancelReservation(id);
+    } catch (error) {
+      console.error("Error canceling reservation:", error);
+    }
+  };
+
+  const handleMarkReminderShown = async (id: string, type: "24h" | "2h") => {
+    try {
+      await markReminderShown(id, type);
+    } catch (error) {
+      console.error("Error marking reminder:", error);
+    }
   };
 
   // Format week range for header
@@ -66,8 +85,22 @@ export default function Agenda() {
     return `${satDay} - ${sunDay}`;
   }, [currentWeekStart]);
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12 md:pt-14">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 md:pt-14">
+      {/* Reminder panel */}
+      <ReminderPanel
+        reservations={reservations}
+        onMarkReminderShown={handleMarkReminderShown}
+      />
+
       {/* Week navigation */}
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="icon" onClick={goToPreviousWeek}>

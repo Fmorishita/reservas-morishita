@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,17 +19,17 @@ const SYSTEM_PROMPT = `Eres un asistente especializado en extraer información d
 
 Tu tarea es analizar la imagen proporcionada y extraer la siguiente información de una reservación:
 - fecha: La fecha de la reservación (formato YYYY-MM-DD si es posible identificar el año, o el texto original si no)
-- horario: El horario de la reservación. Solo son válidos: "13:00", "15:30", "18:00" (1pm, 3:30pm, 6pm)
+- horario: El horario de la reservación. Solo son válidos: "COMIDA" (1pm/13:00), "TARDE" (3:30pm/15:30), "CENA" (6pm/18:00)
 - numero_personas: Número de comensales (máximo 4)
 - nombre_cliente: Nombre del cliente
 - whatsapp: Número de WhatsApp si aparece
 - motivo_visita: Motivo de la visita (cumpleaños, aniversario, negocios, amigos, pareja, etc.)
 - tipo_menu: "Omakase 12 tiempos" si mencionan 12 tiempos/course/degustación, o "Omakase Libre" si mencionan libre/free-style. Default: "Omakase 12 tiempos"
-- alergias_restricciones: Alergias o restricciones alimentarias mencionadas
+- alergias: Alergias o restricciones alimentarias mencionadas
 - errores: Lista de problemas encontrados (horario inválido, más de 4 personas, fecha pasada, información faltante)
 
 Reglas importantes:
-1. Si el horario NO es 1pm/13:00, 3:30pm/15:30, o 6pm/18:00, indica el error y sugiere el horario más cercano
+1. Si el horario NO es 1pm/13:00 (COMIDA), 3:30pm/15:30 (TARDE), o 6pm/18:00 (CENA), indica el error y sugiere el horario más cercano
 2. Si hay más de 4 personas, indica el error
 3. Si falta fecha u horario, indica que es información crítica faltante
 4. Reconoce fechas en múltiples formatos: "Domingo 8 de diciembre", "08/12/2025", "Dec 8", "8 dic"
@@ -68,38 +67,6 @@ function validateImageData(imageBase64: string): { valid: boolean; error?: strin
   return { valid: true };
 }
 
-// Verify user authentication
-async function verifyAuth(req: Request): Promise<{ authenticated: boolean; userId?: string; error?: string }> {
-  const authHeader = req.headers.get("Authorization");
-  
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return { authenticated: false, error: "Se requiere autenticación" };
-  }
-  
-  const token = authHeader.replace("Bearer ", "");
-  
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Missing Supabase configuration");
-    return { authenticated: false, error: "Error de configuración del servidor" };
-  }
-  
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  
-  const { data: { user }, error } = await supabase.auth.getUser();
-  
-  if (error || !user) {
-    console.error("Auth verification failed:", error?.message);
-    return { authenticated: false, error: "Sesión inválida o expirada" };
-  }
-  
-  return { authenticated: true, userId: user.id };
-}
-
 serve(async (req) => {
   console.log("Extract reservation function called");
   
@@ -108,17 +75,6 @@ serve(async (req) => {
   }
 
   try {
-    // Verify authentication
-    const authResult = await verifyAuth(req);
-    if (!authResult.authenticated) {
-      return new Response(
-        JSON.stringify({ error: authResult.error }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    console.log("User authenticated:", authResult.userId);
-
     // Parse and validate request body
     let requestBody;
     try {

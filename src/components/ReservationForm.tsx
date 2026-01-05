@@ -30,23 +30,23 @@ import { cn } from "@/lib/utils";
 
 const reservationSchema = z.object({
   fecha: z.date({ required_error: "Selecciona una fecha" }),
-  horario: z.enum(["13:00", "15:30", "18:00"] as const, {
+  horario: z.enum(["COMIDA", "TARDE", "CENA"] as const, {
     required_error: "Selecciona un horario",
   }),
   numero_personas: z.number().min(1).max(4),
   nombre_cliente: z.string().min(1, "El nombre es requerido").max(100),
-  whatsapp: z.string().min(1, "El WhatsApp es requerido").max(20),
+  whatsapp: z.string().max(20).optional().or(z.literal("")),
   tipo_menu: z.enum(["Omakase 12 tiempos", "Omakase Libre"] as const),
-  motivo_visita: z.string().max(200),
-  alergias_restricciones: z.string().max(500),
-  estado: z.enum(["Pendiente", "Confirmada", "Cancelada", "No show"] as const),
-  notas_internas: z.string().max(500),
+  motivo_visita: z.string().max(200).optional().or(z.literal("")),
+  alergias: z.string().max(500).optional().or(z.literal("")),
+  estado: z.enum(["Pendiente", "Confirmada", "Cancelada", "Completada"] as const),
+  notas_internas: z.string().max(500).optional().or(z.literal("")),
 });
 
 type FormData = z.infer<typeof reservationSchema>;
 
 interface ReservationFormProps {
-  initialData?: Reservation;
+  initialData?: Partial<Reservation>;
   onSubmit: (data: FormData) => void;
   onCancel?: () => void;
   validationError?: string;
@@ -71,15 +71,23 @@ export function ReservationForm({
     defaultValues: initialData
       ? {
           ...initialData,
-          fecha: new Date(initialData.fecha + "T12:00:00"),
+          horario: initialData.horario as TimeSlot,
+          estado: initialData.estado as ReservationStatus,
+          tipo_menu: initialData.tipo_menu as MenuType,
+          whatsapp: initialData.whatsapp || "",
+          motivo_visita: initialData.motivo_visita || "",
+          alergias: initialData.alergias || "",
+          notas_internas: initialData.notas_internas || "",
+          fecha: initialData.fecha ? new Date(initialData.fecha + "T12:00:00") : undefined,
         }
       : {
           estado: "Pendiente",
           tipo_menu: "Omakase 12 tiempos",
           numero_personas: 2,
           motivo_visita: "",
-          alergias_restricciones: "",
+          alergias: "",
           notas_internas: "",
+          whatsapp: "",
         },
   });
 
@@ -190,7 +198,7 @@ export function ReservationForm({
 
       {/* WhatsApp */}
       <div className="space-y-2">
-        <Label>WhatsApp *</Label>
+        <Label>WhatsApp</Label>
         <Input {...register("whatsapp")} placeholder="+52 55 1234 5678" />
         {errors.whatsapp && (
           <p className="text-sm text-destructive">{errors.whatsapp.message}</p>
@@ -230,7 +238,7 @@ export function ReservationForm({
       <div className="space-y-2">
         <Label>Alergias y restricciones</Label>
         <Textarea
-          {...register("alergias_restricciones")}
+          {...register("alergias")}
           placeholder="Alergias, intolerancias, dieta especial..."
           rows={2}
         />
@@ -274,7 +282,7 @@ export function ReservationForm({
           </Button>
         )}
         <Button type="submit" disabled={isSubmitting} className="flex-1">
-          {isSubmitting ? "Guardando..." : initialData ? "Guardar cambios" : "Crear reservación"}
+          {isSubmitting ? "Guardando..." : initialData?.id ? "Guardar cambios" : "Crear reservación"}
         </Button>
       </div>
     </form>

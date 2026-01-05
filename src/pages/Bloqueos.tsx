@@ -6,30 +6,46 @@ import { useReservations } from "@/hooks/useReservations";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { TIME_SLOTS } from "@/types/reservation";
+import { TIME_SLOTS, TimeSlot } from "@/types/reservation";
 import { toast } from "@/hooks/use-toast";
 
 export default function Bloqueos() {
   const { blocks, addBlock, removeBlock } = useReservations();
 
-  const handleAddBlock = (data: {
+  const handleAddBlock = async (data: {
     fecha: string;
-    horario: "13:00" | "15:30" | "18:00" | "DIA_COMPLETO";
-    motivo_bloqueo: string;
+    horario: TimeSlot | "DIA_COMPLETO";
+    motivo: string | null;
   }) => {
-    addBlock(data);
-    toast({
-      title: "Bloqueo creado",
-      description: "El horario ha sido bloqueado exitosamente.",
-    });
+    try {
+      await addBlock(data);
+      toast({
+        title: "Bloqueo creado",
+        description: "El horario ha sido bloqueado exitosamente.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo crear el bloqueo",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleRemoveBlock = (id: string) => {
-    removeBlock(id);
-    toast({
-      title: "Bloqueo eliminado",
-      description: "El horario vuelve a estar disponible.",
-    });
+  const handleRemoveBlock = async (id: string) => {
+    try {
+      await removeBlock(id);
+      toast({
+        title: "Bloqueo eliminado",
+        description: "El horario vuelve a estar disponible.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el bloqueo",
+        variant: "destructive",
+      });
+    }
   };
 
   // Sort blocks by date
@@ -80,9 +96,9 @@ export default function Bloqueos() {
                             <Badge variant="secondary" className="text-xs">
                               {timeLabel}
                             </Badge>
-                            {block.motivo_bloqueo && (
+                            {block.motivo && (
                               <span className="text-xs text-muted-foreground">
-                                {block.motivo_bloqueo}
+                                {block.motivo}
                               </span>
                             )}
                           </div>
