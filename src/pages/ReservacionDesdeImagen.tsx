@@ -126,13 +126,7 @@ export default function ReservacionDesdeImagen() {
     return undefined;
   };
 
-  const normalizeMenuType = (menu?: string): MenuType => {
-    if (!menu) return "Omakase 12 tiempos";
-    
-    const lower = menu.toLowerCase();
-    if (lower.includes("libre") || lower.includes("free")) {
-      return "Omakase Libre";
-    }
+  const normalizeMenuType = (_menu?: string): MenuType => {
     return "Omakase 12 tiempos";
   };
 

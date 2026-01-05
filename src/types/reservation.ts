@@ -1,5 +1,5 @@
 export type TimeSlot = "COMIDA" | "TARDE" | "CENA";
-export type MenuType = "Omakase 12 tiempos" | "Omakase Libre";
+export type MenuType = "Omakase 12 tiempos";
 export type ReservationStatus = "Pendiente" | "Confirmada" | "Cancelada" | "Completada";
 
 export interface Reservation {
@@ -34,7 +34,7 @@ export const TIME_SLOTS: { value: TimeSlot; label: string; hour: number; minute:
   { value: "CENA", label: "6:00 pm", hour: 18, minute: 0 },
 ];
 
-export const MENU_TYPES: MenuType[] = ["Omakase 12 tiempos", "Omakase Libre"];
+export const MENU_TYPES: MenuType[] = ["Omakase 12 tiempos"];
 
 export const RESERVATION_STATUSES: ReservationStatus[] = [
   "Pendiente",
