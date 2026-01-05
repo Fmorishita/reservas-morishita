@@ -31,14 +31,16 @@ serve(async (req) => {
 
     // Extract JWT token from Authorization header
     const token = authHeader.replace("Bearer ", "");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-    // adminClient bypasses RLS and can safely write roles.
-    const adminClient = createClient(supabaseUrl, serviceKey, {
+    // Use anon client with the user's token to validate them
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false },
     });
 
     // Validate the token and get the user
-    const { data: { user }, error: userError } = await adminClient.auth.getUser(token);
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
 
     if (userError || !user) {
       console.error("bootstrap-admin: invalid token", userError);
@@ -47,6 +49,11 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // adminClient bypasses RLS and can safely write roles.
+    const adminClient = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false },
+    });
 
     console.log("bootstrap-admin: validated user", { userId: user.id, email: user.email });
 
