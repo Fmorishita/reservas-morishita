@@ -87,6 +87,16 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Verify authentication
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.log("Missing or invalid authorization header");
+    return new Response(
+      JSON.stringify({ error: "Autenticación requerida" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
   try {
     // Parse and validate request body
     let requestBody;
