@@ -45,7 +45,8 @@ export default function AdminUsuarios() {
 
   // Redirect if not admin
   useEffect(() => {
-    if (!authLoading && !roleLoading && !isAdmin) {
+    // Evita falsos negativos mientras el usuario aún no está disponible.
+    if (!authLoading && user?.id && !roleLoading && !isAdmin) {
       navigate("/", { replace: true });
       toast({
         variant: "destructive",
@@ -53,7 +54,7 @@ export default function AdminUsuarios() {
         description: "Solo los administradores pueden acceder a esta página",
       });
     }
-  }, [authLoading, roleLoading, isAdmin, navigate]);
+  }, [authLoading, roleLoading, isAdmin, navigate, user?.id]);
 
   // Fetch team members
   useEffect(() => {
@@ -149,7 +150,7 @@ export default function AdminUsuarios() {
     setIsSubmitting(false);
   };
 
-  if (authLoading || roleLoading) {
+  if (authLoading || !user?.id || roleLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
