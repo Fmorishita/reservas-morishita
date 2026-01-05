@@ -18,40 +18,37 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("bootstrap-admin: no auth header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // userClient is used ONLY to validate the caller and identify the user.
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false },
-    });
+    // Extract JWT token from Authorization header
+    const token = authHeader.replace("Bearer ", "");
 
     // adminClient bypasses RLS and can safely write roles.
     const adminClient = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false },
     });
 
-    const {
-      data: { user },
-      error: userError,
-    } = await userClient.auth.getUser();
+    // Validate the token and get the user
+    const { data: { user }, error: userError } = await adminClient.auth.getUser(token);
 
     if (userError || !user) {
-      console.error("bootstrap-admin: invalid user", userError);
+      console.error("bootstrap-admin: invalid token", userError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    console.log("bootstrap-admin: validated user", { userId: user.id, email: user.email });
 
     // Check if an admin already exists
     const { data: existingAdmin, error: adminCheckError } = await adminClient
@@ -69,6 +66,7 @@ serve(async (req) => {
     }
 
     if (existingAdmin && existingAdmin.length > 0) {
+      console.log("bootstrap-admin: admin already exists");
       return new Response(
         JSON.stringify({ ok: true, status: "admin_exists" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
