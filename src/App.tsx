@@ -42,14 +42,7 @@ const App = () => (
             <Route path="/nueva" element={<NuevaReservacion />} />
             <Route path="/desde-imagen" element={<ReservacionDesdeImagen />} />
             <Route path="/editar/:id" element={<EditarReservacion />} />
-            <Route
-              path="/bloqueos"
-              element={
-                <StaffRoute>
-                  <Bloqueos />
-                </StaffRoute>
-              }
-            />
+            <Route path="/bloqueos" element={<Bloqueos />} />
             <Route path="/lista" element={<ListaReservaciones />} />
             <Route
               path="/admin/usuarios"
