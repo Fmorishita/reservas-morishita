@@ -141,10 +141,12 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
     // Try Spanish date formats with locale
     const spanishFormats = [
       "EEEE d 'de' MMMM 'de' yyyy",  // "Sábado 3 de enero de 2026"
+      "EEEE d 'de' MMMM yyyy",        // "Sábado 6 de diciembre 2025" (sin "de" antes del año)
       "EEEE, d 'de' MMMM 'de' yyyy", // "Sábado, 3 de enero de 2026"
+      "EEEE, d 'de' MMMM yyyy",       // "Sábado, 6 de diciembre 2025"
       "d 'de' MMMM 'de' yyyy",        // "3 de enero de 2026"
+      "d 'de' MMMM yyyy",             // "6 de diciembre 2025"
       "d 'de' MMMM, yyyy",            // "3 de enero, 2026"
-      "d 'de' MMMM yyyy",             // "3 de enero 2026"
     ];
 
     for (const fmt of spanishFormats) {
