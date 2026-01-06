@@ -51,42 +51,18 @@ export default function AdminUsuarios() {
   const fetchTeamMembers = async () => {
     setIsLoadingMembers(true);
     
-    const { data: rolesData, error: rolesError } = await supabase
-      .from("user_roles")
-      .select("user_id, role");
+    const { data, error } = await supabase.functions.invoke("list-team-members");
 
-    if (rolesError) {
-      console.error("Error fetching roles:", rolesError);
+    if (error) {
+      console.error("Error fetching team members:", error);
       setIsLoadingMembers(false);
       return;
     }
 
-    // Get profiles for these users
-    const userIds = rolesData.map(r => r.user_id);
+    if (data?.members) {
+      setTeamMembers(data.members);
+    }
     
-    const { data: profilesData, error: profilesError } = await supabase
-      .from("profiles")
-      .select("id, full_name")
-      .in("id", userIds);
-
-    if (profilesError) {
-      console.error("Error fetching profiles:", profilesError);
-      setIsLoadingMembers(false);
-      return;
-    }
-
-    // Combine the data
-    const members: TeamMember[] = rolesData.map(roleItem => {
-      const profile = profilesData.find(p => p.id === roleItem.user_id);
-      return {
-        id: roleItem.user_id,
-        email: "", // We don't have email access from profiles
-        fullName: profile?.full_name || "Sin nombre",
-        role: roleItem.role,
-      };
-    });
-
-    setTeamMembers(members);
     setIsLoadingMembers(false);
   };
 
@@ -274,6 +250,7 @@ export default function AdminUsuarios() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nombre</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Rol</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -282,6 +259,9 @@ export default function AdminUsuarios() {
                       <TableRow key={member.id}>
                         <TableCell className="font-medium">
                           {member.fullName}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {member.email}
                         </TableCell>
                         <TableCell>
                           <Badge variant={member.role === "admin" ? "default" : "secondary"}>
