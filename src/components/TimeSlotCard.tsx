@@ -30,6 +30,7 @@ export function TimeSlotCard({
 }: TimeSlotCardProps) {
   const timeLabel = TIME_SLOTS.find((t) => t.value === horario)?.label || horario;
   const isFull = capacity >= MAX_CAPACITY;
+  const availableSpots = MAX_CAPACITY - capacity;
   const { isWithin24Hours, isWithin2Hours } = useReminders([]);
 
   return (
@@ -62,7 +63,7 @@ export function TimeSlotCard({
               )}
             >
               <Users className="w-4 h-4" />
-              {capacity} / {MAX_CAPACITY}
+              {availableSpots} disponible{availableSpots !== 1 ? "s" : ""}
             </Badge>
           )}
         </div>
