@@ -27,7 +27,7 @@ Información a extraer:
 - dia_mencionado: El día de la semana que el cliente DICE (ej: "sábado", "domingo", "viernes")
 - dia_real: El día de la semana que REALMENTE corresponde a la fecha calculada
 - horario_solicitado: El horario EXACTO que menciona el cliente (ej: "3pm", "2:00", "a las 5", etc.)
-- horario: El horario de sesión más cercano: "COMIDA" (1pm/13:00), "TARDE" (3:30pm/15:30), "CENA" (6pm/18:00)
+- horario: El horario de sesión más cercano: "COMIDA" (1pm/13:00), "TARDE" (3:30pm/15:30), "CENA" (6pm/18:00), "NOCHE" (8:30pm/20:30)
 - numero_personas: Número de comensales (máximo 4)
 - nombre_cliente: Nombre del cliente
 - whatsapp: Número de WhatsApp si aparece
