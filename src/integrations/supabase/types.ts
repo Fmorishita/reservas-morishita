@@ -41,11 +41,15 @@ export type Database = {
           created_at: string
           estado: string
           fecha: string
+          fecha_pago: string | null
           horario: string
           id: string
+          metodo_pago: string | null
+          monto_pagado: number | null
           motivo_visita: string | null
           nombre_cliente: string
           notas_internas: string | null
+          notas_pago: string | null
           numero_personas: number
           reminder_24h_shown: boolean
           reminder_2h_shown: boolean
@@ -58,11 +62,15 @@ export type Database = {
           created_at?: string
           estado?: string
           fecha: string
+          fecha_pago?: string | null
           horario: string
           id?: string
+          metodo_pago?: string | null
+          monto_pagado?: number | null
           motivo_visita?: string | null
           nombre_cliente: string
           notas_internas?: string | null
+          notas_pago?: string | null
           numero_personas: number
           reminder_24h_shown?: boolean
           reminder_2h_shown?: boolean
@@ -75,11 +83,15 @@ export type Database = {
           created_at?: string
           estado?: string
           fecha?: string
+          fecha_pago?: string | null
           horario?: string
           id?: string
+          metodo_pago?: string | null
+          monto_pagado?: number | null
           motivo_visita?: string | null
           nombre_cliente?: string
           notas_internas?: string | null
+          notas_pago?: string | null
           numero_personas?: number
           reminder_24h_shown?: boolean
           reminder_2h_shown?: boolean
