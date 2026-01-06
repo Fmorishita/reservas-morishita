@@ -81,20 +81,19 @@ export function TimeSlotCard({
           ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Badge
-                  variant="default"
-                  className="gap-2 font-medium px-3 py-1.5 text-sm cursor-pointer hover:opacity-90 transition-opacity bg-success text-white border-success"
+                <button
+                  className="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-1.5 text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity bg-success text-white focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 >
                   <Users className="w-4 h-4" />
                   {availableSpots} disponible{availableSpots !== 1 ? "s" : ""}
-                </Badge>
+                </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover">
-                <DropdownMenuItem onClick={handlePhotoUpload}>
+              <DropdownMenuContent align="end" className="bg-popover z-50">
+                <DropdownMenuItem onClick={handlePhotoUpload} className="cursor-pointer">
                   <Camera className="w-4 h-4 mr-2" />
                   Subir foto
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleManualEntry}>
+                <DropdownMenuItem onClick={handleManualEntry} className="cursor-pointer">
                   <PenLine className="w-4 h-4 mr-2" />
                   Agregar manual
                 </DropdownMenuItem>
