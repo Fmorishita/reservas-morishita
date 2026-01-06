@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parseISO, isAfter, startOfToday, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
-import { Filter, Download, CreditCard, Banknote, Building2 } from "lucide-react";
+import { Filter, Download, Upload, CreditCard, Banknote, Building2 } from "lucide-react";
+import { ImportCSVModal } from "@/components/ImportCSVModal";
 import { useReservations } from "@/hooks/useReservations";
 import { RESERVATION_STATUSES, TIME_SLOTS, ReservationStatus, PAYMENT_METHODS, PaymentMethod } from "@/types/reservation";
 import { Button } from "@/components/ui/button";
@@ -33,13 +34,14 @@ const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
 
 export default function ListaReservaciones() {
   const navigate = useNavigate();
-  const { reservations, isLoading } = useReservations();
+  const { reservations, isLoading, importReservations } = useReservations();
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "all">("all");
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
   const [paymentMethodFilter, setPaymentMethodFilter] = useState<PaymentMethod | "all">("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Filter and sort reservations
   const filteredReservations = useMemo(() => {
@@ -153,6 +155,15 @@ export default function ListaReservaciones() {
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-medium">Reservaciones</h1>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowImportModal(true)}
+            className="gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">Importar</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -350,6 +361,12 @@ export default function ListaReservaciones() {
       <p className="text-center text-sm text-muted-foreground">
         Mostrando {filteredReservations.length} reservación{filteredReservations.length !== 1 ? "es" : ""}
       </p>
+
+      <ImportCSVModal
+        open={showImportModal}
+        onOpenChange={setShowImportModal}
+        onImport={importReservations}
+      />
     </div>
   );
 }

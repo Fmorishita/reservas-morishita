@@ -200,6 +200,22 @@ export function useReservations() {
       .eq("id", id);
   }, []);
 
+  const importReservations = useCallback(async (
+    reservationsToImport: Omit<Reservation, "id" | "created_at" | "updated_at" | "reminder_24h_shown" | "reminder_2h_shown">[]
+  ) => {
+    const { data, error } = await supabase
+      .from("reservations")
+      .insert(reservationsToImport)
+      .select();
+
+    if (error) {
+      console.error("Error importing reservations:", error);
+      throw error;
+    }
+
+    return data as Reservation[];
+  }, []);
+
   return {
     reservations,
     blocks,
@@ -216,5 +232,6 @@ export function useReservations() {
     removeBlock,
     getBlocksForDate,
     markReminderShown,
+    importReservations,
   };
 }
