@@ -14,6 +14,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navItems: Array<{
   to: string;
@@ -72,10 +73,12 @@ export function Layout() {
             />
           </div>
           
-          {/* User menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-secondary/80 transition-colors duration-300">
+          {/* Theme toggle and User menu */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full hover:bg-secondary/80 transition-colors duration-300">
                 <Avatar className="h-9 w-9 ring-2 ring-border/50 hover:ring-gold/50 transition-all duration-300">
                   <AvatarFallback className="text-xs bg-secondary text-secondary-foreground font-medium">
                     {profile?.full_name ? getInitials(profile.full_name) : "?"}
@@ -103,9 +106,10 @@ export function Layout() {
               >
                 <LogOut className="w-4 h-4 mr-2" />
                 Cerrar Sesión
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
