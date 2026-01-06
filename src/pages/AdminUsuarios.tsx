@@ -11,8 +11,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, UserPlus, Shield, Users } from "lucide-react";
+import { Loader2, AlertCircle, UserPlus, Shield, Users, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Validation schemas
 const emailSchema = z.string().email("Email inválido").max(255);
@@ -64,6 +75,48 @@ export default function AdminUsuarios() {
     }
     
     setIsLoadingMembers(false);
+  };
+
+  const handleUpdateRole = async (userId: string, newRole: "admin" | "staff") => {
+    const { data, error } = await supabase.functions.invoke("update-user-role", {
+      body: { userId, newRole },
+    });
+
+    if (error || data?.error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: data?.error || error?.message || "Error al cambiar el rol",
+      });
+      return;
+    }
+
+    toast({
+      title: "Rol actualizado",
+      description: `El rol ha sido cambiado a ${newRole === "admin" ? "Administrador" : "Staff"}`,
+    });
+    fetchTeamMembers();
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    const { data, error } = await supabase.functions.invoke("delete-user", {
+      body: { userId },
+    });
+
+    if (error || data?.error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: data?.error || error?.message || "Error al eliminar el usuario",
+      });
+      return;
+    }
+
+    toast({
+      title: "Usuario eliminado",
+      description: `${userName} ha sido eliminado del sistema`,
+    });
+    fetchTeamMembers();
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -252,24 +305,73 @@ export default function AdminUsuarios() {
                       <TableHead>Nombre</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Rol</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {teamMembers.map((member) => (
-                      <TableRow key={member.id}>
-                        <TableCell className="font-medium">
-                          {member.fullName}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {member.email}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={member.role === "admin" ? "default" : "secondary"}>
-                            {member.role === "admin" ? "Admin" : "Staff"}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {teamMembers.map((member) => {
+                      const isCurrentUser = member.id === user?.id;
+                      return (
+                        <TableRow key={member.id}>
+                          <TableCell className="font-medium">
+                            {member.fullName}
+                            {isCurrentUser && (
+                              <span className="ml-2 text-xs text-muted-foreground">(Tú)</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {member.email}
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={member.role}
+                              onValueChange={(value) => handleUpdateRole(member.id, value as "admin" | "staff")}
+                              disabled={isCurrentUser}
+                            >
+                              <SelectTrigger className="w-[120px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="staff">Staff</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  disabled={isCurrentUser}
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Eliminar usuario?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta acción no se puede deshacer. Se eliminará permanentemente a{" "}
+                                    <strong>{member.fullName}</strong> del sistema.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteUser(member.id, member.fullName)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Eliminar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
