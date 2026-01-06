@@ -61,7 +61,7 @@ export function Layout() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/50 glass-strong">
+      <header className="sticky top-0 z-50 border-b border-border/50 glass-strong pt-[env(safe-area-inset-top)]">
         <div className="container flex items-center justify-between h-16 md:h-18">
           <div className="w-10" /> {/* Spacer for centering */}
           <div className="relative group">
