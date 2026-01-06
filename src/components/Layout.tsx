@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const navItems: Array<{
   to: string;
@@ -59,34 +60,47 @@ export function Layout() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border glass">
-        <div className="container flex items-center justify-between h-14 md:h-16">
+      <header className="sticky top-0 z-50 border-b border-border/50 glass-strong">
+        <div className="container flex items-center justify-between h-16 md:h-18">
           <div className="w-10" /> {/* Spacer for centering */}
-          <img src={morishitaLogo} alt="Morishita" className="h-8 md:h-10" />
+          <div className="relative group">
+            <div className="absolute -inset-2 bg-gold/10 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <img 
+              src={morishitaLogo} 
+              alt="Morishita" 
+              className="h-9 md:h-11 relative transition-transform duration-300 group-hover:scale-105" 
+            />
+          </div>
           
           {/* User menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="text-xs bg-secondary">
+              <Button variant="ghost" size="icon" className="rounded-full hover:bg-secondary/80 transition-colors duration-300">
+                <Avatar className="h-9 w-9 ring-2 ring-border/50 hover:ring-gold/50 transition-all duration-300">
+                  <AvatarFallback className="text-xs bg-secondary text-secondary-foreground font-medium">
                     {profile?.full_name ? getInitials(profile.full_name) : "?"}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <div className="px-2 py-1.5 text-sm font-medium truncate">
+            <DropdownMenuContent align="end" className="w-52 shadow-medium border-border/50 animate-scale-in">
+              <div className="px-3 py-2.5 text-sm font-medium truncate border-b border-border/50">
                 {profile?.full_name || "Usuario"}
               </div>
-              <DropdownMenuSeparator />
               {isAdmin && (
-                <DropdownMenuItem onClick={() => navigate("/admin/usuarios")}>
-                  <Shield className="w-4 h-4 mr-2" />
+                <DropdownMenuItem 
+                  onClick={() => navigate("/admin/usuarios")}
+                  className="cursor-pointer py-2.5 focus:bg-secondary"
+                >
+                  <Shield className="w-4 h-4 mr-2 text-gold" />
                   Administrar Usuarios
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+              <DropdownMenuSeparator className="bg-border/50" />
+              <DropdownMenuItem 
+                onClick={handleSignOut} 
+                className="text-destructive cursor-pointer py-2.5 focus:bg-destructive/10 focus:text-destructive"
+              >
                 <LogOut className="w-4 h-4 mr-2" />
                 Cerrar Sesión
               </DropdownMenuItem>
@@ -96,45 +110,51 @@ export function Layout() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 container py-4 pb-20 md:pb-6">
+      <main className="flex-1 container py-6 pb-24 md:pb-8">
         <Outlet />
       </main>
 
       {/* Bottom navigation (mobile) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border glass md:hidden">
-        <div className="flex items-center justify-around h-16">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 glass-strong md:hidden safe-area-bottom">
+        <div className="flex items-center justify-around h-18 px-2">
           {visibleNavItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 px-4 py-2 transition-colors ${
+                cn(
+                  "flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl transition-all duration-300 min-w-[60px]",
                   isActive
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`
+                    ? "text-gold bg-gold/10"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                )
               }
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-xs font-medium">{label}</span>
+              {({ isActive }) => (
+                <>
+                  <Icon className={cn("w-5 h-5 transition-transform duration-300", isActive && "scale-110")} />
+                  <span className="text-xs font-medium">{label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </div>
       </nav>
 
       {/* Desktop navigation */}
-      <nav className="hidden md:block fixed top-14 left-0 right-0 z-40 border-b border-border glass">
-        <div className="container flex items-center justify-center gap-8 h-12">
+      <nav className="hidden md:block fixed top-16 left-0 right-0 z-40 border-b border-border/50 glass">
+        <div className="container flex items-center justify-center gap-2 h-14">
           {visibleNavItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors ${
+                cn(
+                  "flex items-center gap-2 px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-300",
                   isActive
-                    ? "text-foreground border-b-2 border-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`
+                    ? "text-gold bg-gold/10 shadow-soft"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+                )
               }
             >
               <Icon className="w-4 h-4" />
@@ -145,7 +165,7 @@ export function Layout() {
       </nav>
 
       {/* Spacer for desktop nav */}
-      <div className="hidden md:block h-12" />
+      <div className="hidden md:block h-14" />
     </div>
   );
 }

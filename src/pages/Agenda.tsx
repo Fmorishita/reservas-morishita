@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, addWeeks, subWeeks, startOfWeek, addDays } from "date-fns";
 import { es } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DayAgenda } from "@/components/DayAgenda";
 import { ReservationDetail } from "@/components/ReservationDetail";
@@ -87,14 +87,17 @@ export default function Agenda() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12 md:pt-14">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center py-20 md:pt-20">
+        <div className="relative">
+          <div className="absolute inset-0 animate-glow rounded-full" />
+          <Loader2 className="w-8 h-8 animate-spin text-gold" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 md:pt-14">
+    <div className="space-y-8 md:pt-16 animate-fade-in">
       {/* Reminder panel */}
       <ReminderPanel
         reservations={reservations}
@@ -102,29 +105,49 @@ export default function Agenda() {
       />
 
       {/* Week navigation */}
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="icon" onClick={goToPreviousWeek}>
+      <div className="flex items-center justify-between bg-card rounded-2xl p-4 shadow-soft border border-border/50">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={goToPreviousWeek}
+          className="rounded-xl hover:bg-secondary/80 hover:text-gold transition-all duration-300"
+        >
           <ChevronLeft className="w-5 h-5" />
         </Button>
-        <h1 className="text-lg font-medium capitalize">{weekRangeText}</h1>
-        <Button variant="ghost" size="icon" onClick={goToNextWeek}>
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-gold/10">
+            <Calendar className="w-5 h-5 text-gold" />
+          </div>
+          <h1 className="text-lg md:text-xl font-medium capitalize tracking-tight">{weekRangeText}</h1>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={goToNextWeek}
+          className="rounded-xl hover:bg-secondary/80 hover:text-gold transition-all duration-300"
+        >
           <ChevronRight className="w-5 h-5" />
         </Button>
       </div>
 
       {/* Weekend days */}
       <div className="grid gap-8 md:grid-cols-2">
-        {weekendDates.map((fecha) => (
-          <DayAgenda
-            key={fecha}
-            fecha={fecha}
-            reservations={reservations.filter((r) => r.fecha === fecha)}
-            blocks={blocks.filter((b) => b.fecha === fecha)}
-            getCapacity={getCapacityForSlot}
-            isSlotBlocked={isSlotBlocked}
-            isDayBlocked={isDayBlocked}
-            onReservationClick={handleReservationClick}
-          />
+        {weekendDates.map((fecha, index) => (
+          <div 
+            key={fecha} 
+            className="animate-fade-in"
+            style={{ animationDelay: `${index * 100}ms` }}
+          >
+            <DayAgenda
+              fecha={fecha}
+              reservations={reservations.filter((r) => r.fecha === fecha)}
+              blocks={blocks.filter((b) => b.fecha === fecha)}
+              getCapacity={getCapacityForSlot}
+              isSlotBlocked={isSlotBlocked}
+              isDayBlocked={isDayBlocked}
+              onReservationClick={handleReservationClick}
+            />
+          </div>
         ))}
       </div>
 

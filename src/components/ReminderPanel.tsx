@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Bell, BellRing, Clock, Users } from "lucide-react";
+import { Bell, BellRing, Clock, Users, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,11 +51,16 @@ export function ReminderPanel({ reservations, onMarkReminderShown }: ReminderPan
   }
 
   return (
-    <Card className="border-warning/50 bg-warning/5 animate-fade-in">
-      <CardHeader className="pb-2">
+    <Card className="border-gold/30 bg-gradient-to-r from-gold/5 via-champagne/30 to-gold/5 shadow-soft overflow-hidden animate-fade-in relative">
+      {/* Decorative accent */}
+      <div className="absolute left-0 top-0 bottom-0 w-1 gradient-gold" />
+      
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <BellRing className="w-4 h-4 text-warning" />
+          <CardTitle className="text-base font-medium flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-gold/10">
+              <BellRing className="w-4 h-4 text-gold animate-pulse-soft" />
+            </div>
             Próximas reservaciones
           </CardTitle>
           {!browserNotificationsEnabled && (
@@ -63,16 +68,16 @@ export function ReminderPanel({ reservations, onMarkReminderShown }: ReminderPan
               variant="ghost"
               size="sm"
               onClick={requestNotificationPermission}
-              className="text-xs"
+              className="text-xs text-muted-foreground hover:text-gold hover:bg-gold/10 gap-1.5"
             >
-              <Bell className="w-3 h-3 mr-1" />
+              <Bell className="w-3.5 h-3.5" />
               Activar notificaciones
             </Button>
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-2">
-        {upcomingReminders.map((reminder) => {
+      <CardContent className="space-y-3 pt-0">
+        {upcomingReminders.map((reminder, index) => {
           const timeSlot = TIME_SLOTS.find((t) => t.value === reminder.reservation.horario);
           const timeLabel = timeSlot?.label || reminder.reservation.horario;
 
@@ -80,41 +85,48 @@ export function ReminderPanel({ reservations, onMarkReminderShown }: ReminderPan
             <div
               key={`${reminder.reservation.id}-${reminder.type}`}
               className={cn(
-                "flex items-center justify-between p-3 rounded-lg transition-colors",
+                "flex items-center justify-between p-4 rounded-xl transition-all duration-300 animate-fade-in",
                 reminder.type === "2h" 
                   ? "bg-destructive/10 border border-destructive/30" 
                   : "bg-warning/10 border border-warning/30"
               )}
+              style={{ animationDelay: `${index * 100}ms` }}
             >
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">
                   {reminder.reservation.nombre_cliente}
                 </p>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1.5">
                   <span>{reminder.reservation.fecha}</span>
-                  <span>•</span>
+                  <span className="text-border">•</span>
                   <span>{timeLabel}</span>
-                  <span>•</span>
+                  <span className="text-border">•</span>
                   <span className="flex items-center gap-1">
                     <Users className="w-3 h-3" />
                     {reminder.reservation.numero_personas}
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2 ml-2">
+              <div className="flex items-center gap-3 ml-3">
                 <Badge
                   variant={reminder.type === "2h" ? "destructive" : "secondary"}
-                  className="gap-1 shrink-0"
+                  className={cn(
+                    "gap-1.5 shrink-0 font-medium px-2.5",
+                    reminder.type === "2h" 
+                      ? "bg-destructive/20 text-destructive border border-destructive/30" 
+                      : "bg-warning/20 text-warning border border-warning/30"
+                  )}
                 >
-                  <Clock className="w-3 h-3" />
+                  <Clock className={cn("w-3 h-3", reminder.type === "2h" && "animate-pulse-soft")} />
                   {formatTimeUntil(reminder.minutesUntil)}
                 </Badge>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-xs h-7 px-2"
+                  className="text-xs h-8 px-3 hover:bg-success/10 hover:text-success transition-colors"
                   onClick={() => onMarkReminderShown(reminder.reservation.id, reminder.type)}
                 >
+                  <Sparkles className="w-3 h-3 mr-1" />
                   Listo
                 </Button>
               </div>
