@@ -53,6 +53,7 @@ export type Database = {
           numero_personas: number
           reminder_24h_shown: boolean
           reminder_2h_shown: boolean
+          ticket_imagen_url: string | null
           tipo_menu: string
           updated_at: string
           whatsapp: string | null
@@ -74,6 +75,7 @@ export type Database = {
           numero_personas: number
           reminder_24h_shown?: boolean
           reminder_2h_shown?: boolean
+          ticket_imagen_url?: string | null
           tipo_menu?: string
           updated_at?: string
           whatsapp?: string | null
@@ -95,6 +97,7 @@ export type Database = {
           numero_personas?: number
           reminder_24h_shown?: boolean
           reminder_2h_shown?: boolean
+          ticket_imagen_url?: string | null
           tipo_menu?: string
           updated_at?: string
           whatsapp?: string | null

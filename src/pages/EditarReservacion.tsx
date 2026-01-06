@@ -83,6 +83,7 @@ export default function EditarReservacion() {
     monto_pagado: number | null;
     fecha_pago: string | null;
     notas_pago: string | null;
+    ticket_imagen_url: string | null;
   }) => {
     setIsUpdatingPayment(true);
     try {

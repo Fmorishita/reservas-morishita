@@ -1,1 +1,16 @@
 project_id = "sgstjcnjhkpurzlsyphe"
+
+[functions.bootstrap-admin]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.extract-reservation]
+verify_jwt = false
+
+[functions.setup-admin]
+verify_jwt = false
+
+[functions.extract-ticket-amount]
+verify_jwt = false
