@@ -24,6 +24,7 @@ export interface Reservation {
   monto_pagado: number | null;
   fecha_pago: string | null;
   notas_pago: string | null;
+  ticket_imagen_url: string | null;
 }
 
 export interface TimeBlock {

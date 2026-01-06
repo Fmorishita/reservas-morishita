@@ -98,6 +98,7 @@ export default function ListaReservaciones() {
       "Método de Pago",
       "Monto Pagado",
       "Fecha de Pago",
+      "URL Ticket",
       "Notas Internas",
       "Notas de Pago",
     ];
@@ -117,6 +118,7 @@ export default function ListaReservaciones() {
         r.metodo_pago || "Sin pagar",
         r.monto_pagado?.toString() || "",
         r.fecha_pago ? format(new Date(r.fecha_pago), "yyyy-MM-dd HH:mm") : "",
+        r.ticket_imagen_url || "",
         r.notas_internas || "",
         r.notas_pago || "",
       ];
