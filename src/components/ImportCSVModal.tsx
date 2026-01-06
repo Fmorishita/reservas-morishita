@@ -269,7 +269,20 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
         // Parse optional fields
         const whatsapp = colWhatsapp !== -1 ? row[colWhatsapp]?.trim() || null : null;
         const menu = colMenu !== -1 ? row[colMenu]?.trim() || MENU_TYPES[0] : MENU_TYPES[0];
-        const estado = colEstado !== -1 ? row[colEstado]?.trim() || "Confirmada" : "Confirmada";
+        
+        // Normalize estado to valid values: Confirmada, Pendiente, Cancelada, Completada
+        const rawEstado = colEstado !== -1 ? row[colEstado]?.trim().toLowerCase() || "" : "";
+        const estadoMap: Record<string, string> = {
+          "confirmada": "Confirmada",
+          "pendiente": "Pendiente",
+          "cancelada": "Cancelada",
+          "completada": "Completada",
+          "realizada": "Completada",
+          "finalizada": "Completada",
+          "pagada": "Completada",
+          "": "Confirmada",
+        };
+        const estado = estadoMap[rawEstado] || "Confirmada";
         const alergias = colAlergias !== -1 ? row[colAlergias]?.trim() || null : null;
         const motivo = colMotivo !== -1 ? row[colMotivo]?.trim() || null : null;
         const metodoPago = colMetodoPago !== -1 ? (row[colMetodoPago]?.trim() === "Sin pagar" ? null : row[colMetodoPago]?.trim() || null) : null;
