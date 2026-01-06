@@ -137,6 +137,10 @@
     @apply border-border;
   }
 
+  html {
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: "Noto Sans JP", system-ui, sans-serif;

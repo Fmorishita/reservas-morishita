@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { Layout } from "@/components/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AdminRoute } from "@/components/AdminRoute";
@@ -23,41 +24,48 @@ const queryClient = new QueryClient();
 // Main App component with routing
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Public routes */}
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/setup" element={<SetupAdmin />} />
-          
-          {/* Protected routes */}
-          <Route element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }>
-            <Route path="/" element={<Index />} />
-            <Route path="/nueva" element={<NuevaReservacion />} />
-            <Route path="/desde-imagen" element={<ReservacionDesdeImagen />} />
-            <Route path="/editar/:id" element={<EditarReservacion />} />
-            <Route path="/bloqueos" element={<Bloqueos />} />
-            <Route path="/lista" element={<ListaReservaciones />} />
-            <Route
-              path="/admin/usuarios"
-              element={
-                <AdminRoute>
-                  <AdminUsuarios />
-                </AdminRoute>
-              }
-            />
-          </Route>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      storageKey="morishita-theme"
+    >
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/setup" element={<SetupAdmin />} />
+            
+            {/* Protected routes */}
+            <Route element={
+              <ProtectedRoute>
+                <Layout />
+              </ProtectedRoute>
+            }>
+              <Route path="/" element={<Index />} />
+              <Route path="/nueva" element={<NuevaReservacion />} />
+              <Route path="/desde-imagen" element={<ReservacionDesdeImagen />} />
+              <Route path="/editar/:id" element={<EditarReservacion />} />
+              <Route path="/bloqueos" element={<Bloqueos />} />
+              <Route path="/lista" element={<ListaReservaciones />} />
+              <Route
+                path="/admin/usuarios"
+                element={
+                  <AdminRoute>
+                    <AdminUsuarios />
+                  </AdminRoute>
+                }
+              />
+            </Route>
 
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 
