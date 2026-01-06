@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 
 const reservationSchema = z.object({
   fecha: z.date({ required_error: "Selecciona una fecha" }),
-  horario: z.enum(["COMIDA", "TARDE", "CENA"] as const, {
+  horario: z.enum(["COMIDA", "TARDE", "CENA", "NOCHE"] as const, {
     required_error: "Selecciona un horario",
   }),
   numero_personas: z.number().min(1).max(4),

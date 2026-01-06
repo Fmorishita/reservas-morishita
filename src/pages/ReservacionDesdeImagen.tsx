@@ -122,6 +122,9 @@ export default function ReservacionDesdeImagen() {
     if (normalized === "cena" || normalized.includes("18:00") || normalized.includes("6:00pm") || normalized.includes("6pm")) {
       return "CENA";
     }
+    if (normalized === "noche" || normalized.includes("20:30") || normalized.includes("8:30pm") || normalized.includes("830pm") || normalized.includes("8pm")) {
+      return "NOCHE";
+    }
     
     return undefined;
   };

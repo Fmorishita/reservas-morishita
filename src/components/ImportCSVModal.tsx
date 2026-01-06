@@ -67,6 +67,13 @@ const TIME_SLOT_MAPPINGS: Record<string, TimeSlot> = {
   "CENA": "CENA",
   "cena": "CENA",
   "Cena": "CENA",
+  "8:30 pm": "NOCHE",
+  "8:30 PM": "NOCHE",
+  "8:30PM": "NOCHE",
+  "20:30": "NOCHE",
+  "NOCHE": "NOCHE",
+  "noche": "NOCHE",
+  "Noche": "NOCHE",
 };
 
 type ModalState = "idle" | "parsing" | "preview" | "importing";
@@ -390,6 +397,7 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
     COMIDA: "1:00 pm",
     TARDE: "3:30 pm",
     CENA: "6:00 pm",
+    NOCHE: "8:30 pm",
   };
 
   return (
