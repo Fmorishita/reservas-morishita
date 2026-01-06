@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -11,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, AlertCircle, UserPlus, Shield, Users, Trash2 } from "lucide-react";
+import { Loader2, AlertCircle, UserPlus, Shield, Users, Trash2, Search } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -35,6 +37,7 @@ interface TeamMember {
   email: string;
   fullName: string;
   role: string;
+  createdAt: string | null;
 }
 
 export default function AdminUsuarios() {
@@ -46,11 +49,27 @@ export default function AdminUsuarios() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
 
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "admin" | "staff">("all");
+
   // Form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<"admin" | "staff">("staff");
+
+  // Filtered members
+  const filteredMembers = useMemo(() => {
+    return teamMembers.filter((member) => {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch =
+        member.fullName.toLowerCase().includes(searchLower) ||
+        member.email.toLowerCase().includes(searchLower);
+      const matchesRole = roleFilter === "all" || member.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [teamMembers, searchQuery, roleFilter]);
 
   // Fetch team members - AdminRoute already verified admin access
   useEffect(() => {
@@ -290,6 +309,29 @@ export default function AdminUsuarios() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {/* Search and Filter */}
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nombre o email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as "all" | "admin" | "staff")}>
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <SelectValue placeholder="Filtrar por rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los roles</SelectItem>
+                    <SelectItem value="admin">Administradores</SelectItem>
+                    <SelectItem value="staff">Staff</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               {isLoadingMembers ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -298,18 +340,23 @@ export default function AdminUsuarios() {
                 <p className="text-muted-foreground text-center py-8">
                   No hay usuarios registrados
                 </p>
+              ) : filteredMembers.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No se encontraron usuarios con los filtros aplicados
+                </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nombre</TableHead>
                       <TableHead>Email</TableHead>
+                      <TableHead>Creado</TableHead>
                       <TableHead>Rol</TableHead>
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {teamMembers.map((member) => {
+                    {filteredMembers.map((member) => {
                       const isCurrentUser = member.id === user?.id;
                       return (
                         <TableRow key={member.id}>
@@ -321,6 +368,11 @@ export default function AdminUsuarios() {
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             {member.email}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {member.createdAt
+                              ? format(new Date(member.createdAt), "dd MMM yyyy", { locale: es })
+                              : "-"}
                           </TableCell>
                           <TableCell>
                             <Select

@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
         email: authUser?.email || "",
         fullName: profile?.full_name || "Sin nombre",
         role: roleItem.role,
+        createdAt: authUser?.created_at || null,
       };
     });
 
