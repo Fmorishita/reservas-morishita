@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +29,6 @@ interface TeamMember {
 export default function AdminUsuarios() {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
-  const { isAdmin, isLoading: roleLoading } = useUserRole(user?.id);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -43,25 +41,12 @@ export default function AdminUsuarios() {
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState<"admin" | "staff">("staff");
 
-  // Redirect if not admin
+  // Fetch team members - AdminRoute already verified admin access
   useEffect(() => {
-    // Evita falsos negativos mientras el usuario aún no está disponible.
-    if (!authLoading && user?.id && !roleLoading && !isAdmin) {
-      navigate("/", { replace: true });
-      toast({
-        variant: "destructive",
-        title: "Acceso denegado",
-        description: "Solo los administradores pueden acceder a esta página",
-      });
-    }
-  }, [authLoading, roleLoading, isAdmin, navigate, user?.id]);
-
-  // Fetch team members
-  useEffect(() => {
-    if (isAdmin) {
+    if (user?.id) {
       fetchTeamMembers();
     }
-  }, [isAdmin]);
+  }, [user?.id]);
 
   const fetchTeamMembers = async () => {
     setIsLoadingMembers(true);
@@ -150,16 +135,13 @@ export default function AdminUsuarios() {
     setIsSubmitting(false);
   };
 
-  if (authLoading || !user?.id || roleLoading) {
+  // Only show loading while auth is loading - AdminRoute handles admin verification
+  if (authLoading || !user?.id) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
-  }
-
-  if (!isAdmin) {
-    return null;
   }
 
   return (
