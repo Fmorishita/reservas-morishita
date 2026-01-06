@@ -37,7 +37,7 @@ export function TimeSlotCard({
       className={cn(
         "transition-all duration-300 hover-lift border-border/50 overflow-hidden",
         isBlocked && "opacity-60 bg-muted/50",
-        isFull && !isBlocked && "ring-1 ring-gold/30 shadow-gold"
+        isFull && !isBlocked && "ring-1 ring-destructive/30"
       )}
     >
       <CardHeader className="pb-3 bg-gradient-to-r from-secondary/50 to-transparent">
@@ -53,13 +53,15 @@ export function TimeSlotCard({
             </Badge>
           ) : (
             <Badge
-              variant={isFull ? "default" : "outline"}
+              variant="default"
               className={cn(
-                "gap-1.5 font-medium",
-                isFull && "gradient-gold text-primary-foreground border-0"
+                "gap-2 font-medium px-3 py-1.5 text-sm",
+                isFull 
+                  ? "bg-destructive text-destructive-foreground border-destructive" 
+                  : "bg-success text-white border-success"
               )}
             >
-              <Users className="w-3 h-3" />
+              <Users className="w-4 h-4" />
               {capacity} / {MAX_CAPACITY}
             </Badge>
           )}
