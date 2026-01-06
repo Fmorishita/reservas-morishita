@@ -74,6 +74,7 @@ export function DayAgenda({
               >
                 <TimeSlotCard
                   horario={value}
+                  fecha={fecha}
                   reservations={slotReservations}
                   capacity={getCapacity(fecha, value)}
                   isBlocked={blocked}

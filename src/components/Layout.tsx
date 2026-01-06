@@ -22,7 +22,7 @@ const navItems: Array<{
   label: string;
   requiresAdmin?: boolean;
 }> = [
-  { to: "/", icon: Calendar, label: "Agenda" },
+  { to: "/", icon: Calendar, label: "Reservas" },
   { to: "/nueva", icon: Plus, label: "Nueva" },
   { to: "/desde-imagen", icon: Camera, label: "Foto" },
   { to: "/bloqueos", icon: Lock, label: "Bloqueos" },
