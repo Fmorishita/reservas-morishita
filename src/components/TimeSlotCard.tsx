@@ -1,12 +1,20 @@
 import { TimeSlot, TIME_SLOTS, MAX_CAPACITY, Reservation, PaymentMethod } from "@/types/reservation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Users, Clock, CreditCard, Banknote, Building2, User } from "lucide-react";
+import { Lock, Users, Clock, CreditCard, Banknote, Building2, User, Camera, PenLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReminders } from "@/hooks/useReminders";
+import { useNavigate } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface TimeSlotCardProps {
   horario: TimeSlot;
+  fecha: string;
   reservations: Reservation[];
   capacity: number;
   isBlocked: boolean;
@@ -22,16 +30,26 @@ const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
 
 export function TimeSlotCard({
   horario,
+  fecha,
   reservations,
   capacity,
   isBlocked,
   blockReason,
   onReservationClick,
 }: TimeSlotCardProps) {
+  const navigate = useNavigate();
   const timeLabel = TIME_SLOTS.find((t) => t.value === horario)?.label || horario;
   const isFull = capacity >= MAX_CAPACITY;
   const availableSpots = MAX_CAPACITY - capacity;
   const { isWithin24Hours, isWithin2Hours } = useReminders([]);
+
+  const handlePhotoUpload = () => {
+    navigate(`/desde-imagen?fecha=${fecha}&horario=${horario}`);
+  };
+
+  const handleManualEntry = () => {
+    navigate(`/nueva?fecha=${fecha}&horario=${horario}`);
+  };
 
   return (
     <Card
@@ -52,19 +70,36 @@ export function TimeSlotCard({
               <Lock className="w-3 h-3" />
               Cerrado
             </Badge>
-          ) : (
+          ) : isFull ? (
             <Badge
               variant="default"
-              className={cn(
-                "gap-2 font-medium px-3 py-1.5 text-sm",
-                isFull 
-                  ? "bg-destructive text-destructive-foreground border-destructive" 
-                  : "bg-success text-white border-success"
-              )}
+              className="gap-2 font-medium px-3 py-1.5 text-sm bg-destructive text-destructive-foreground border-destructive"
             >
               <Users className="w-4 h-4" />
-              {availableSpots} disponible{availableSpots !== 1 ? "s" : ""}
+              0 disponibles
             </Badge>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Badge
+                  variant="default"
+                  className="gap-2 font-medium px-3 py-1.5 text-sm cursor-pointer hover:opacity-90 transition-opacity bg-success text-white border-success"
+                >
+                  <Users className="w-4 h-4" />
+                  {availableSpots} disponible{availableSpots !== 1 ? "s" : ""}
+                </Badge>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-popover">
+                <DropdownMenuItem onClick={handlePhotoUpload}>
+                  <Camera className="w-4 h-4 mr-2" />
+                  Subir foto
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleManualEntry}>
+                  <PenLine className="w-4 h-4 mr-2" />
+                  Agregar manual
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </CardHeader>
