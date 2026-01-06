@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 type AppRole = "admin" | "staff";
@@ -6,11 +6,14 @@ type AppRole = "admin" | "staff";
 export function useUserRole(userId: string | undefined) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const hasFetchedRef = useRef(false);
 
   const fetchRole = useCallback(async () => {
+    // If no userId, keep loading true - let parent handle auth state
     if (!userId) {
       setRole(null);
-      setIsLoading(false);
+      hasFetchedRef.current = false;
+      // Don't set isLoading to false here - wait for userId
       return;
     }
 
@@ -25,6 +28,7 @@ export function useUserRole(userId: string | undefined) {
 
     if (!error && data?.role) {
       setRole(data.role as AppRole);
+      hasFetchedRef.current = true;
       setIsLoading(false);
       return;
     }
@@ -39,6 +43,7 @@ export function useUserRole(userId: string | undefined) {
     else if (isStaff) setRole("staff");
     else setRole(null);
 
+    hasFetchedRef.current = true;
     setIsLoading(false);
   }, [userId]);
 
@@ -54,6 +59,7 @@ export function useUserRole(userId: string | undefined) {
     isAdmin,
     isStaff,
     isLoading,
+    hasFetched: hasFetchedRef.current,
     refetch: fetchRole,
   };
 }

@@ -12,12 +12,15 @@ interface StaffRouteProps {
 export function StaffRoute({ children }: StaffRouteProps) {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
-  const { isAdmin, isStaff, isLoading: roleLoading } = useUserRole(user?.id);
+  const { isAdmin, isStaff, isLoading: roleLoading, hasFetched } = useUserRole(user?.id);
 
   const hasAccess = isAdmin || isStaff;
 
   useEffect(() => {
-    if (!authLoading && user?.id && !roleLoading && !hasAccess) {
+    const authReady = !authLoading && !!user?.id;
+    const roleReady = !roleLoading && hasFetched;
+
+    if (authReady && roleReady && !hasAccess) {
       navigate("/", { replace: true });
       toast({
         variant: "destructive",
@@ -25,9 +28,9 @@ export function StaffRoute({ children }: StaffRouteProps) {
         description: "No tienes permisos para acceder a esta página",
       });
     }
-  }, [authLoading, roleLoading, hasAccess, navigate, user?.id]);
+  }, [authLoading, roleLoading, hasAccess, hasFetched, navigate, user?.id]);
 
-  if (authLoading || !user?.id || roleLoading) {
+  if (authLoading || !user?.id || roleLoading || !hasFetched) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />

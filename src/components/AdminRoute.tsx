@@ -12,10 +12,18 @@ interface AdminRouteProps {
 export function AdminRoute({ children }: AdminRouteProps) {
   const navigate = useNavigate();
   const { user, isLoading: authLoading } = useAuth();
-  const { isAdmin, isLoading: roleLoading } = useUserRole(user?.id);
+  const { isAdmin, isLoading: roleLoading, hasFetched } = useUserRole(user?.id);
 
   useEffect(() => {
-    if (!authLoading && user?.id && !roleLoading && !isAdmin) {
+    // Only redirect when we're 100% sure:
+    // 1. Auth finished loading
+    // 2. We have a user
+    // 3. Role finished loading AND we actually fetched the role
+    // 4. User is NOT admin
+    const authReady = !authLoading && !!user?.id;
+    const roleReady = !roleLoading && hasFetched;
+
+    if (authReady && roleReady && !isAdmin) {
       navigate("/", { replace: true });
       toast({
         variant: "destructive",
@@ -23,9 +31,10 @@ export function AdminRoute({ children }: AdminRouteProps) {
         description: "Solo los administradores pueden acceder a esta página",
       });
     }
-  }, [authLoading, roleLoading, isAdmin, navigate, user?.id]);
+  }, [authLoading, roleLoading, isAdmin, hasFetched, navigate, user?.id]);
 
-  if (authLoading || !user?.id || roleLoading) {
+  // Show loading while auth or role is loading
+  if (authLoading || !user?.id || roleLoading || !hasFetched) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
