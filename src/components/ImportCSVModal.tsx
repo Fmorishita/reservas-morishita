@@ -119,8 +119,11 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
   };
 
   const parseDate = (dateStr: string): string | null => {
-    // Try different date formats
-    const formats = [
+    // Clean the string
+    const cleanDate = dateStr.trim();
+    
+    // Try numeric formats first (without locale)
+    const numericFormats = [
       "yyyy-MM-dd",
       "dd/MM/yyyy",
       "d/M/yyyy",
@@ -128,12 +131,33 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
       "dd-MM-yyyy",
     ];
 
-    for (const fmt of formats) {
-      const parsed = parse(dateStr, fmt, new Date());
+    for (const fmt of numericFormats) {
+      const parsed = parse(cleanDate, fmt, new Date());
       if (isValid(parsed)) {
         return format(parsed, "yyyy-MM-dd");
       }
     }
+
+    // Try Spanish date formats with locale
+    const spanishFormats = [
+      "EEEE d 'de' MMMM 'de' yyyy",  // "Sábado 3 de enero de 2026"
+      "EEEE, d 'de' MMMM 'de' yyyy", // "Sábado, 3 de enero de 2026"
+      "d 'de' MMMM 'de' yyyy",        // "3 de enero de 2026"
+      "d 'de' MMMM, yyyy",            // "3 de enero, 2026"
+      "d 'de' MMMM yyyy",             // "3 de enero 2026"
+    ];
+
+    for (const fmt of spanishFormats) {
+      try {
+        const parsed = parse(cleanDate, fmt, new Date(), { locale: es });
+        if (isValid(parsed)) {
+          return format(parsed, "yyyy-MM-dd");
+        }
+      } catch {
+        // Continue with next format
+      }
+    }
+
     return null;
   };
 
