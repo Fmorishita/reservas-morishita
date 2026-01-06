@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 
 type PaymentFilter = "all" | "paid" | "unpaid";
+type TimeFilter = "all" | "future" | "past";
 
 const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
   Efectivo: <Banknote className="w-3 h-3" />,
@@ -42,6 +43,7 @@ export default function ListaReservaciones() {
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("future");
 
   // Filter and sort reservations
   const filteredReservations = useMemo(() => {
@@ -55,11 +57,19 @@ export default function ListaReservaciones() {
         if (dateTo && isAfter(parseISO(r.fecha), parseISO(dateTo))) {
           return false;
         }
-        // If no date filters, only show future reservations
+        // Time filter (only applies when no manual date range is set)
         if (!dateFrom && !dateTo) {
-          if (!isAfter(parseISO(r.fecha), today) && parseISO(r.fecha).toDateString() !== today.toDateString()) {
+          const reservationDate = parseISO(r.fecha);
+          const isToday = reservationDate.toDateString() === today.toDateString();
+          const isFuture = isAfter(reservationDate, today) || isToday;
+          
+          if (timeFilter === "future" && !isFuture) {
             return false;
           }
+          if (timeFilter === "past" && isFuture) {
+            return false;
+          }
+          // Si timeFilter === "all", no filtrar por tiempo
         }
         // Status filter
         if (statusFilter !== "all" && r.estado !== statusFilter) {
@@ -84,7 +94,7 @@ export default function ListaReservaciones() {
         if (dateCompare !== 0) return dateCompare;
         return a.horario.localeCompare(b.horario);
       });
-  }, [reservations, statusFilter, paymentFilter, paymentMethodFilter, dateFrom, dateTo]);
+  }, [reservations, statusFilter, paymentFilter, paymentMethodFilter, dateFrom, dateTo, timeFilter]);
 
   const handleExportCSV = () => {
     const headers = [
@@ -186,6 +196,31 @@ export default function ListaReservaciones() {
         </div>
       </div>
 
+      {/* Quick time filter */}
+      <div className="flex gap-2">
+        <Button
+          variant={timeFilter === "future" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setTimeFilter("future")}
+        >
+          Próximas
+        </Button>
+        <Button
+          variant={timeFilter === "past" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setTimeFilter("past")}
+        >
+          Anteriores
+        </Button>
+        <Button
+          variant={timeFilter === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setTimeFilter("all")}
+        >
+          Todas
+        </Button>
+      </div>
+
       {/* Filters */}
       <Collapsible open={showFilters} onOpenChange={setShowFilters}>
         <CollapsibleContent className="space-y-4 pb-4">
@@ -279,6 +314,7 @@ export default function ListaReservaciones() {
               setPaymentMethodFilter("all");
               setDateFrom("");
               setDateTo("");
+              setTimeFilter("future");
             }}
             className="w-full"
           >
