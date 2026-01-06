@@ -3,7 +3,7 @@ import { es } from "date-fns/locale";
 import { TIME_SLOTS, TimeSlot, Reservation, TimeBlock } from "@/types/reservation";
 import { TimeSlotCard } from "./TimeSlotCard";
 import { Badge } from "@/components/ui/badge";
-import { Lock } from "lucide-react";
+import { Lock, CalendarX } from "lucide-react";
 
 interface DayAgendaProps {
   fecha: string;
@@ -31,30 +31,33 @@ export function DayAgenda({
   const dayBlock = blocks.find((b) => b.horario === "DIA_COMPLETO");
 
   return (
-    <div className="space-y-3 animate-slide-in">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      {/* Day header */}
+      <div className="flex items-center justify-between bg-card rounded-xl p-4 border border-border/50 shadow-soft">
         <div>
-          <h2 className="text-xl font-medium capitalize">{dayName}</h2>
-          <p className="text-sm text-muted-foreground capitalize">{formattedDate}</p>
+          <h2 className="text-xl md:text-2xl font-medium capitalize text-foreground">{dayName}</h2>
+          <p className="text-sm text-muted-foreground capitalize mt-0.5">{formattedDate}</p>
         </div>
         {dayBlocked && (
-          <Badge variant="secondary" className="gap-1">
-            <Lock className="w-3 h-3" />
+          <Badge variant="secondary" className="gap-1.5 bg-muted/80 text-muted-foreground px-3 py-1.5">
+            <Lock className="w-3.5 h-3.5" />
             Día cerrado
           </Badge>
         )}
       </div>
 
       {dayBlocked ? (
-        <div className="p-6 rounded-lg bg-muted text-center">
-          <Lock className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-muted-foreground">
+        <div className="p-8 rounded-xl bg-muted/50 border border-border/50 text-center animate-fade-in">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-4">
+            <CalendarX className="w-7 h-7 text-muted-foreground" />
+          </div>
+          <p className="text-muted-foreground font-medium">
             {dayBlock?.motivo || "Este día está cerrado"}
           </p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {TIME_SLOTS.map(({ value }) => {
+        <div className="grid gap-4">
+          {TIME_SLOTS.map(({ value }, index) => {
             const slotReservations = reservations.filter(
               (r) => r.horario === value && r.estado !== "Cancelada"
             );
@@ -64,15 +67,20 @@ export function DayAgenda({
             )?.motivo;
 
             return (
-              <TimeSlotCard
-                key={value}
-                horario={value}
-                reservations={slotReservations}
-                capacity={getCapacity(fecha, value)}
-                isBlocked={blocked}
-                blockReason={blockReason || undefined}
-                onReservationClick={onReservationClick}
-              />
+              <div 
+                key={value} 
+                className="animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <TimeSlotCard
+                  horario={value}
+                  reservations={slotReservations}
+                  capacity={getCapacity(fecha, value)}
+                  isBlocked={blocked}
+                  blockReason={blockReason || undefined}
+                  onReservationClick={onReservationClick}
+                />
+              </div>
             );
           })}
         </div>
