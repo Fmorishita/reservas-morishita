@@ -32,15 +32,6 @@ export function TimeSlotCard({
   const isFull = capacity >= MAX_CAPACITY;
   const { isWithin24Hours, isWithin2Hours } = useReminders([]);
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <Card
       className={cn(
@@ -98,18 +89,6 @@ export function TimeSlotCard({
                   )}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  {/* Avatar */}
-                  <div className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center text-xs font-medium shrink-0",
-                    within2h 
-                      ? "bg-destructive/20 text-destructive" 
-                      : within24h 
-                      ? "bg-warning/20 text-warning" 
-                      : "bg-muted text-muted-foreground"
-                  )}>
-                    {getInitials(r.nombre_cliente)}
-                  </div>
-
                   {/* Content */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
