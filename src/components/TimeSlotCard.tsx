@@ -1,7 +1,7 @@
-import { TimeSlot, TIME_SLOTS, MAX_CAPACITY, Reservation } from "@/types/reservation";
+import { TimeSlot, TIME_SLOTS, MAX_CAPACITY, Reservation, PaymentMethod } from "@/types/reservation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Users, Clock } from "lucide-react";
+import { Lock, Users, Clock, CreditCard, Banknote, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReminders } from "@/hooks/useReminders";
 
@@ -13,6 +13,12 @@ interface TimeSlotCardProps {
   blockReason?: string;
   onReservationClick?: (reservation: Reservation) => void;
 }
+
+const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
+  Efectivo: <Banknote className="w-3 h-3" />,
+  Tarjeta: <CreditCard className="w-3 h-3" />,
+  Transferencia: <Building2 className="w-3 h-3" />,
+};
 
 export function TimeSlotCard({
   horario,
@@ -64,6 +70,7 @@ export function TimeSlotCard({
             {reservations.map((r) => {
               const within2h = isWithin2Hours(r);
               const within24h = isWithin24Hours(r);
+              const isPaid = !!r.metodo_pago;
 
               return (
                 <li
@@ -81,6 +88,11 @@ export function TimeSlotCard({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-sm truncate">{r.nombre_cliente}</p>
+                      {isPaid && (
+                        <span className="text-success shrink-0" title={`Pagado: ${r.metodo_pago}`}>
+                          {paymentIcons[r.metodo_pago as PaymentMethod]}
+                        </span>
+                      )}
                       {within2h && (
                         <Clock className="w-3 h-3 text-destructive shrink-0" />
                       )}

@@ -3,8 +3,11 @@ import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
+import { PaymentSection } from "@/components/PaymentSection";
 import { useReservations } from "@/hooks/useReservations";
 import { toast } from "@/hooks/use-toast";
+import { PaymentMethod } from "@/types/reservation";
+import { Separator } from "@/components/ui/separator";
 
 export default function EditarReservacion() {
   const navigate = useNavigate();
@@ -12,6 +15,7 @@ export default function EditarReservacion() {
   const { reservations, isLoading, updateReservation, canAddReservation } = useReservations();
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
 
   if (isLoading) {
     return (
@@ -74,9 +78,44 @@ export default function EditarReservacion() {
     }
   };
 
+  const handleUpdatePayment = async (updates: {
+    metodo_pago: PaymentMethod | null;
+    monto_pagado: number | null;
+    fecha_pago: string | null;
+    notas_pago: string | null;
+  }) => {
+    setIsUpdatingPayment(true);
+    try {
+      await updateReservation(reservation.id, updates);
+      toast({
+        title: updates.metodo_pago ? "Pago registrado" : "Pago eliminado",
+        description: updates.metodo_pago 
+          ? `Se registró el pago con ${updates.metodo_pago}`
+          : "Se eliminó el registro de pago",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el pago",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingPayment(false);
+    }
+  };
+
   return (
-    <div className="max-w-lg mx-auto space-y-6 md:pt-14">
+    <div className="max-w-lg mx-auto space-y-6 md:pt-14 pb-24">
       <h1 className="text-2xl font-medium">Editar reservación</h1>
+      
+      <PaymentSection
+        reservation={reservation}
+        onUpdatePayment={handleUpdatePayment}
+        isUpdating={isUpdatingPayment}
+      />
+
+      <Separator />
+      
       <ReservationForm
         initialData={reservation}
         onSubmit={handleSubmit}
