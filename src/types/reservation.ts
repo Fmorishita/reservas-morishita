@@ -42,6 +42,11 @@ export const TIME_SLOTS: { value: TimeSlot; label: string; hour: number; minute:
   { value: "NOCHE", label: "8:30 pm", hour: 20, minute: 30 },
 ];
 
+export const getAvailableTimeSlots = (date: Date) => {
+  const isSunday = date.getDay() === 0;
+  return TIME_SLOTS.filter(slot => !(isSunday && slot.value === "NOCHE"));
+};
+
 export const MENU_TYPES: MenuType[] = ["Omakase 12 tiempos"];
 
 export const RESERVATION_STATUSES: ReservationStatus[] = [

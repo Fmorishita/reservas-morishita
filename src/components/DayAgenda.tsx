@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { TIME_SLOTS, TimeSlot, Reservation, TimeBlock } from "@/types/reservation";
+import { TimeSlot, Reservation, TimeBlock, getAvailableTimeSlots } from "@/types/reservation";
 import { TimeSlotCard } from "./TimeSlotCard";
 import { Badge } from "@/components/ui/badge";
 import { Lock, CalendarX } from "lucide-react";
@@ -57,7 +57,7 @@ export function DayAgenda({
         </div>
       ) : (
         <div className="grid gap-4">
-          {TIME_SLOTS.map(({ value }, index) => {
+          {getAvailableTimeSlots(date).map(({ value }, index) => {
             const slotReservations = reservations.filter(
               (r) => r.horario === value && r.estado !== "Cancelada"
             );

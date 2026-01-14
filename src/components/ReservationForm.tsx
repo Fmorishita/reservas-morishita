@@ -1,3 +1,4 @@
+import { useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,11 +8,11 @@ import { CalendarIcon, User, Phone, FileText, AlertTriangle, MessageSquare, Uten
 import {
   Reservation,
   TimeSlot,
-  TIME_SLOTS,
   MENU_TYPES,
   RESERVATION_STATUSES,
   MenuType,
   ReservationStatus,
+  getAvailableTimeSlots,
 } from "@/types/reservation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,12 +93,26 @@ export function ReservationForm({
   });
 
   const selectedDate = watch("fecha");
+  const selectedHorario = watch("horario");
 
   // Only allow weekends
   const isWeekend = (date: Date) => {
     const day = date.getDay();
     return day === 0 || day === 6;
   };
+
+  // Get available time slots based on selected date
+  const availableSlots = useMemo(() => {
+    if (!selectedDate) return getAvailableTimeSlots(new Date()); // Default to today (Saturday assumed)
+    return getAvailableTimeSlots(selectedDate);
+  }, [selectedDate]);
+
+  // Clear horario if NOCHE is selected and date changes to Sunday
+  useEffect(() => {
+    if (selectedDate && selectedHorario === "NOCHE" && selectedDate.getDay() === 0) {
+      setValue("horario", undefined as unknown as TimeSlot);
+    }
+  }, [selectedDate, selectedHorario, setValue]);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -163,7 +178,7 @@ export function ReservationForm({
               </div>
             </SelectTrigger>
             <SelectContent className="shadow-medium border-border/50">
-              {TIME_SLOTS.map(({ value, label }) => (
+              {availableSlots.map(({ value, label }) => (
                 <SelectItem key={value} value={value} className="py-3">
                   {label}
                 </SelectItem>

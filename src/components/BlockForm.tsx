@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
-import { TimeSlot, TIME_SLOTS } from "@/types/reservation";
+import { TimeSlot, getAvailableTimeSlots } from "@/types/reservation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -36,6 +36,19 @@ export function BlockForm({ onSubmit, isSubmitting }: BlockFormProps) {
     const day = date.getDay();
     return day === 0 || day === 6;
   };
+
+  // Get available time slots based on selected date
+  const availableSlots = useMemo(() => {
+    if (!selectedDate) return getAvailableTimeSlots(new Date());
+    return getAvailableTimeSlots(selectedDate);
+  }, [selectedDate]);
+
+  // Clear horario if NOCHE is selected and date changes to Sunday
+  useEffect(() => {
+    if (selectedDate && horario === "NOCHE" && selectedDate.getDay() === 0) {
+      setHorario("DIA_COMPLETO");
+    }
+  }, [selectedDate, horario]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +108,7 @@ export function BlockForm({ onSubmit, isSubmitting }: BlockFormProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="DIA_COMPLETO">Día completo</SelectItem>
-            {TIME_SLOTS.map(({ value, label }) => (
+            {availableSlots.map(({ value, label }) => (
               <SelectItem key={value} value={value}>
                 Solo {label}
               </SelectItem>
