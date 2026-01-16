@@ -53,6 +53,38 @@ export default function ReservacionDesdeImagen() {
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Compress image before processing
+  const compressImage = useCallback((base64: string, maxWidth = 1200, quality = 0.7): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        
+        // Scale down if needed
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Convert to JPEG with compression
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => {
+        // If compression fails, return original
+        resolve(base64);
+      };
+      img.src = base64;
+    });
+  }, []);
+
   const handleImageSelect = useCallback((file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -239,16 +271,42 @@ export default function ReservacionDesdeImagen() {
     setShowValidation(false);
     
     try {
+      // Compress image before sending to reduce size and prevent timeouts
+      console.log("Compressing image...");
+      const compressedImage = await compressImage(image);
+      console.log("Image compressed, sending to server...");
+      
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+      
       const { data, error } = await supabase.functions.invoke("extract-reservation", {
-        body: { imageBase64: image },
+        body: { imageBase64: compressedImage },
       });
+      
+      clearTimeout(timeoutId);
 
       if (error) {
+        console.error("Supabase function error:", error);
+        // Handle specific error types
+        if (error.message?.includes("FunctionsHttpError")) {
+          throw new Error("Error del servidor. Por favor intenta de nuevo.");
+        }
+        if (error.message?.includes("FunctionsRelayError")) {
+          throw new Error("No se pudo conectar con el servidor. Verifica tu conexión a internet.");
+        }
+        if (error.message?.includes("FunctionsFetchError")) {
+          throw new Error("Error de conexión. Verifica tu conexión a internet.");
+        }
         throw new Error(error.message || "Error al procesar la imagen");
       }
 
+      if (!data) {
+        throw new Error("No se recibió respuesta del servidor");
+      }
+
       if (!data.success) {
-        throw new Error(data.error || "No se pudo extraer información");
+        throw new Error(data.error || "No se pudo extraer información de la imagen");
       }
 
       const extracted = data.data as ExtractedData;
@@ -257,9 +315,20 @@ export default function ReservacionDesdeImagen() {
       
     } catch (err) {
       console.error("Error processing image:", err);
+      
+      let errorMessage = "Error al procesar la imagen. Intenta con otra foto.";
+      
+      if (err instanceof Error) {
+        if (err.name === "AbortError") {
+          errorMessage = "La imagen tardó demasiado en procesarse. Intenta con una foto más pequeña o con mejor iluminación.";
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Error al procesar la imagen",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

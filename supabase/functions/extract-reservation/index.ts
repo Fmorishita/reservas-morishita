@@ -136,6 +136,11 @@ serve(async (req) => {
       );
     }
 
+    // Log image size for debugging
+    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    const estimatedSizeKB = Math.round((base64Data.length * 3) / 4 / 1024);
+    console.log(`Processing image, estimated size: ${estimatedSizeKB}KB`);
+
     console.log("Calling Lovable AI Gateway with image...");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -167,13 +172,15 @@ serve(async (req) => {
       }),
     });
 
+    console.log(`AI Gateway response status: ${response.status}`);
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error("AI Gateway error:", response.status, errorText);
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Servicio temporalmente no disponible. Intenta de nuevo en unos momentos." }),
+          JSON.stringify({ error: "Servicio temporalmente ocupado. Intenta de nuevo en unos segundos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -183,15 +190,21 @@ serve(async (req) => {
           { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      if (response.status === 408 || response.status === 504) {
+        return new Response(
+          JSON.stringify({ error: "La imagen tardó demasiado en procesarse. Intenta con una foto más pequeña." }),
+          { status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       
       return new Response(
-        JSON.stringify({ error: "Error al procesar la imagen" }),
+        JSON.stringify({ error: "Error al procesar la imagen. Intenta de nuevo." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const data = await response.json();
-    console.log("AI response received");
+    console.log("AI response received successfully");
     
     const aiContent = data.choices?.[0]?.message?.content;
     if (!aiContent) {
