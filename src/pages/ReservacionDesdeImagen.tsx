@@ -53,7 +53,7 @@ const STEP_PROGRESS = [25, 50, 75, 90];
 
 export default function ReservacionDesdeImagen() {
   const navigate = useNavigate();
-  const { addReservation, canAddReservation, getCapacityForSlot, isSlotBlocked, isLoading: reservationsLoading } = useReservations();
+  const { addReservation, canAddReservation, getCapacityForSlot, isSlotBlocked, extraSlots, isLoading: reservationsLoading } = useReservations();
   
   const [image, setImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -741,6 +741,7 @@ export default function ReservacionDesdeImagen() {
             <h2 className="text-lg font-medium mb-4">Confirmar reservación</h2>
             <ReservationForm
               initialData={getInitialFormData()}
+              extraSlots={extraSlots}
               onSubmit={handleSubmit}
               onCancel={() => {
                 setShowForm(false);

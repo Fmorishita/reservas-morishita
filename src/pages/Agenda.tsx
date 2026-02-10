@@ -22,6 +22,7 @@ export default function Agenda() {
   const {
     reservations,
     blocks,
+    extraSlots,
     isLoading,
     getCapacityForSlot,
     isSlotBlocked,
@@ -142,6 +143,7 @@ export default function Agenda() {
               fecha={fecha}
               reservations={reservations.filter((r) => r.fecha === fecha)}
               blocks={blocks.filter((b) => b.fecha === fecha)}
+              extraSlots={extraSlots}
               getCapacity={getCapacityForSlot}
               isSlotBlocked={isSlotBlocked}
               isDayBlocked={isDayBlocked}

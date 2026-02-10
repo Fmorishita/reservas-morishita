@@ -12,6 +12,7 @@ import {
   RESERVATION_STATUSES,
   MenuType,
   ReservationStatus,
+  ExtraSlot,
   getAvailableTimeSlots,
 } from "@/types/reservation";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,7 @@ type FormData = z.infer<typeof reservationSchema>;
 
 interface ReservationFormProps {
   initialData?: Partial<Reservation>;
+  extraSlots?: ExtraSlot[];
   onSubmit: (data: FormData) => void;
   onCancel?: () => void;
   validationError?: string;
@@ -56,6 +58,7 @@ interface ReservationFormProps {
 
 export function ReservationForm({
   initialData,
+  extraSlots,
   onSubmit,
   onCancel,
   validationError,
@@ -103,9 +106,9 @@ export function ReservationForm({
 
   // Get available time slots based on selected date
   const availableSlots = useMemo(() => {
-    if (!selectedDate) return getAvailableTimeSlots(new Date()); // Default to today (Saturday assumed)
-    return getAvailableTimeSlots(selectedDate);
-  }, [selectedDate]);
+    if (!selectedDate) return getAvailableTimeSlots(new Date(), extraSlots);
+    return getAvailableTimeSlots(selectedDate, extraSlots);
+  }, [selectedDate, extraSlots]);
 
   // Clear horario if NOCHE is selected and date changes to Sunday
   useEffect(() => {

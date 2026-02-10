@@ -7,7 +7,7 @@ import { toast } from "@/hooks/use-toast";
 
 export default function NuevaReservacion() {
   const navigate = useNavigate();
-  const { addReservation, canAddReservation } = useReservations();
+  const { addReservation, canAddReservation, extraSlots } = useReservations();
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -55,6 +55,7 @@ export default function NuevaReservacion() {
     <div className="max-w-lg mx-auto space-y-6 md:pt-14">
       <h1 className="text-2xl font-medium">Nueva reservación</h1>
       <ReservationForm
+        extraSlots={extraSlots}
         onSubmit={handleSubmit}
         onCancel={() => navigate("/")}
         validationError={validationError}

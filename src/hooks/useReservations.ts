@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { Reservation, TimeBlock, TimeSlot, MAX_CAPACITY } from "@/types/reservation";
+import { Reservation, TimeBlock, TimeSlot, ExtraSlot, MAX_CAPACITY } from "@/types/reservation";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
 export function useReservations() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [blocks, setBlocks] = useState<TimeBlock[]>([]);
+  const [extraSlots, setExtraSlots] = useState<ExtraSlot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch initial data
@@ -13,16 +14,19 @@ export function useReservations() {
     async function fetchData() {
       setIsLoading(true);
       try {
-        const [resResult, blockResult] = await Promise.all([
+        const [resResult, blockResult, extraResult] = await Promise.all([
           supabase.from("reservations").select("*").order("fecha", { ascending: true }),
           supabase.from("time_blocks").select("*").order("fecha", { ascending: true }),
+          supabase.from("extra_slots").select("*").order("fecha", { ascending: true }),
         ]);
 
         if (resResult.error) throw resResult.error;
         if (blockResult.error) throw blockResult.error;
+        if (extraResult.error) throw extraResult.error;
 
         setReservations(resResult.data as Reservation[]);
         setBlocks(blockResult.data as TimeBlock[]);
+        setExtraSlots(extraResult.data as ExtraSlot[]);
       } catch (error) {
         console.error("Error fetching data:", error);
         toast({
@@ -185,6 +189,36 @@ export function useReservations() {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
   }, []);
 
+  const addExtraSlot = useCallback(async (slot: Omit<ExtraSlot, "id" | "created_at">) => {
+    const { data, error } = await supabase
+      .from("extra_slots")
+      .insert([slot])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error adding extra slot:", error);
+      throw error;
+    }
+
+    setExtraSlots((prev) => [...prev, data as ExtraSlot]);
+    return data as ExtraSlot;
+  }, []);
+
+  const removeExtraSlot = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from("extra_slots")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error removing extra slot:", error);
+      throw error;
+    }
+
+    setExtraSlots((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+
   const getBlocksForDate = useCallback(
     (fecha: string) => {
       return blocks.filter((b) => b.fecha === fecha);
@@ -219,6 +253,7 @@ export function useReservations() {
   return {
     reservations,
     blocks,
+    extraSlots,
     isLoading,
     getReservationsForSlot,
     getCapacityForSlot,
@@ -230,6 +265,8 @@ export function useReservations() {
     cancelReservation,
     addBlock,
     removeBlock,
+    addExtraSlot,
+    removeExtraSlot,
     getBlocksForDate,
     markReminderShown,
     importReservations,

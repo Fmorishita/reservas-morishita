@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      extra_slots: {
+        Row: {
+          created_at: string
+          fecha: string
+          horario: string
+          id: string
+          motivo: string | null
+        }
+        Insert: {
+          created_at?: string
+          fecha: string
+          horario: string
+          id?: string
+          motivo?: string | null
+        }
+        Update: {
+          created_at?: string
+          fecha?: string
+          horario?: string
+          id?: string
+          motivo?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
