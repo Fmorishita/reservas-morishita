@@ -1,74 +1,38 @@
 
 
-# Agregar horarios extra por fecha
+# Horarios extra con hora personalizada
 
 ## Resumen
-Crear la funcionalidad para agregar sesiones extra en fechas especificas. Por ejemplo, habilitar la sesion de 8:30 pm un domingo especifico aunque normalmente no esta disponible. Esto se manejara desde la misma pagina de Bloqueos, que pasara a llamarse "Gestionar horarios".
+Cambiar el formulario de horarios extra para permitir escribir cualquier hora (ej. 4:20 pm, 10:30 pm) en lugar de elegir solo de los 4 horarios fijos.
+
+## Cambios principales
+
+### 1. ExtraSlotForm - Input de hora libre
+Reemplazar el `Select` de horarios por un campo de entrada de hora (`input type="time"`), que permite elegir cualquier hora del dia. El valor se guardara en formato "HH:mm" (ej. "16:20", "22:30").
+
+La interfaz del formulario cambiara de:
+- Select con 4 opciones fijas --> Input de hora donde escribes o seleccionas cualquier hora
+
+### 2. Actualizar tipo ExtraSlot y almacenamiento
+El campo `horario` en la tabla `extra_slots` ya es tipo `text`, asi que puede almacenar cualquier valor. Se guardara en formato "HH:mm" (ej. "16:20") en lugar de "COMIDA" o "NOCHE".
+
+Actualizar la interfaz `ExtraSlot` en `types/reservation.ts` para que `horario` sea `string` (ya no limitado a `TimeSlot`).
+
+### 3. Actualizar getAvailableTimeSlots
+Modificar la funcion para que cuando encuentre extra slots con formato "HH:mm", genere entradas con la hora/minuto correctos y una etiqueta legible (ej. "4:20 pm").
+
+### 4. Actualizar visualizacion en Bloqueos.tsx
+En la lista de horarios extra activos, mostrar la hora formateada (ej. "4:20 pm") en lugar de buscar en TIME_SLOTS (que no encontraria horas personalizadas).
+
+### 5. Actualizar TimeSlotCard y DayAgenda
+El `TimeSlotCard` ya tiene un fallback (`timeLabel = ... || horario`), asi que mostrara correctamente las horas personalizadas. Solo hay que asegurar que `getAvailableTimeSlots` retorne la etiqueta correcta.
 
 ---
 
-## 1. Nueva tabla en la base de datos: `extra_slots`
+## Detalles tecnicos
 
-Crear una tabla para registrar horarios extra habilitados en fechas especificas:
-
-| Columna | Tipo | Descripcion |
-|---------|------|-------------|
-| id | uuid | Identificador unico |
-| fecha | date | Fecha del horario extra |
-| horario | text | Horario a habilitar (COMIDA, TARDE, CENA, NOCHE) |
-| motivo | text (nullable) | Razon del horario extra |
-| created_at | timestamptz | Fecha de creacion |
-
-Incluye politicas RLS para staff y admin (mismas que `time_blocks`).
-
----
-
-## 2. Actualizar tipos en `src/types/reservation.ts`
-
-- Agregar interfaz `ExtraSlot` con los campos de la tabla
-- Modificar `getAvailableTimeSlots` para aceptar un segundo parametro opcional `extraSlots: ExtraSlot[]` que agregue horarios extra para esa fecha
-
----
-
-## 3. Nuevo componente: `ExtraSlotForm`
-
-Formulario similar a `BlockForm` pero para agregar horarios extra:
-- Selector de fecha (solo fines de semana)
-- Selector de horario (mostrando solo los horarios que NO estan ya disponibles ese dia, es decir, en domingo solo mostrara "8:30 pm")
-- Campo de motivo opcional
-- Boton "Agregar horario extra"
-
----
-
-## 4. Actualizar `src/hooks/useReservations.ts`
-
-- Agregar estado `extraSlots` y cargarlo junto con reservaciones y bloques
-- Agregar funciones `addExtraSlot` y `removeExtraSlot`
-- Modificar `getAvailableTimeSlots` para considerar los extra slots de cada fecha
-- Exportar `extraSlots`, `addExtraSlot`, `removeExtraSlot`
-
----
-
-## 5. Actualizar `src/pages/Bloqueos.tsx`
-
-Reorganizar la pagina en dos secciones con tabs:
-- **Tab "Bloquear"**: Formulario y lista de bloqueos (funcionalidad actual)
-- **Tab "Horarios extra"**: Nuevo formulario `ExtraSlotForm` y lista de horarios extra activos con opcion de eliminar
-
-Cambiar el titulo a "Gestionar horarios".
-
----
-
-## 6. Actualizar `DayAgenda.tsx` y `ReservationForm.tsx`
-
-- Pasar los `extraSlots` a `getAvailableTimeSlots` para que los domingos con horario extra de 8:30 pm lo muestren
-- En `ReservationForm`, las opciones de horario incluiran los extra slots de la fecha seleccionada
-
----
-
-## Resultado esperado
-
-- Desde la pagina de gestion de horarios, podras agregar un horario extra (ej. 8:30 pm el domingo 15 de febrero)
-- Ese horario aparecera en la agenda y estara disponible para reservaciones solo en esa fecha
-- Los horarios extra se pueden eliminar en cualquier momento
+- El `ExtraSlotForm` usara `<Input type="time" />` nativo del navegador, que muestra un selector de hora en movil y escritorio
+- Se creara una funcion auxiliar `formatTimeLabel(timeStr: string)` que convierte "16:20" a "4:20 pm"
+- El tipo `TimeSlot` seguira siendo el enum para los horarios base; los extra slots usaran `string` para su horario
+- En `Bloqueos.tsx`, la etiqueta del horario extra se calculara con `formatTimeLabel` en lugar de buscar en `TIME_SLOTS`
 
