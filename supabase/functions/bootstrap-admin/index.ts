@@ -10,18 +10,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Simple JWT decode (no verification - we trust Supabase's verification)
-function decodeJwt(token: string): { sub?: string; email?: string } | null {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return payload;
-  } catch {
-    return null;
-  }
-}
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -31,6 +19,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -41,22 +30,24 @@ serve(async (req) => {
       });
     }
 
-    // Extract JWT token from Authorization header
-    const token = authHeader.replace("Bearer ", "");
-    
-    // Decode the JWT to get user info (Supabase already validated it)
-    const payload = decodeJwt(token);
-    
-    if (!payload || !payload.sub) {
-      console.error("bootstrap-admin: invalid token payload");
+    // Validate JWT properly using Supabase client
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { persistSession: false },
+    });
+
+    const { data: { user }, error: userError } = await userClient.auth.getUser();
+
+    if (userError || !user) {
+      console.error("bootstrap-admin: invalid token", userError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = payload.sub;
-    const email = payload.email || "unknown";
+    const userId = user.id;
+    const email = user.email || "unknown";
 
     console.log("bootstrap-admin: validated user", { userId, email });
 
@@ -104,7 +95,7 @@ serve(async (req) => {
     console.log("bootstrap-admin: granted admin", { userId, email });
 
     return new Response(
-      JSON.stringify({ ok: true, status: "bootstrapped", userId, email }),
+      JSON.stringify({ ok: true, status: "bootstrapped" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
