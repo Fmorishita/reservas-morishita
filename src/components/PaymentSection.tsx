@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CreditCard, Banknote, Building2, Check, Camera, Image, X, Loader2, ExternalLink } from "lucide-react";
@@ -48,17 +48,40 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
 
   // Ticket image states
   const [ticketFile, setTicketFile] = useState<File | null>(null);
-  const [ticketPreview, setTicketPreview] = useState<string | null>(
-    reservation.ticket_imagen_url
-  );
+  const [ticketPreview, setTicketPreview] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [ticketSignedUrl, setTicketSignedUrl] = useState<string | null>(null);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const isPaid = !!reservation.metodo_pago;
+
+  // Generate signed URL for existing ticket images
+  useEffect(() => {
+    const getSignedUrl = async () => {
+      const url = reservation.ticket_imagen_url;
+      if (!url) {
+        setTicketSignedUrl(null);
+        return;
+      }
+      // If it's already a full URL (legacy public URL or signed URL), use it directly
+      if (url.startsWith('http')) {
+        setTicketSignedUrl(url);
+        return;
+      }
+      // Otherwise it's a file path — generate a signed URL
+      const { data, error } = await supabase.storage
+        .from('payment-tickets')
+        .createSignedUrl(url, 86400);
+      if (!error && data) {
+        setTicketSignedUrl(data.signedUrl);
+      }
+    };
+    getSignedUrl();
+  }, [reservation.ticket_imagen_url]);
 
   // Validation: amount is required for Efectivo and Transferencia
   const isAmountRequired = selectedMethod === "Efectivo" || selectedMethod === "Transferencia";
@@ -130,7 +153,7 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
   };
 
   const uploadTicketImage = async (): Promise<string | null> => {
-    if (!ticketFile) return ticketPreview; // Return existing URL if no new file
+    if (!ticketFile) return reservation.ticket_imagen_url; // Return existing path if no new file
 
     setIsUploading(true);
     try {
@@ -150,11 +173,8 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
         throw uploadError;
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('payment-tickets')
-        .getPublicUrl(filePath);
-
-      return publicUrl;
+      // Store just the file path — signed URLs are generated on read
+      return filePath;
     } catch (err) {
       console.error('Error in uploadTicketImage:', err);
       toast({
@@ -245,17 +265,17 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
         </div>
 
         {/* Ticket image preview */}
-        {reservation.ticket_imagen_url && (
+        {ticketSignedUrl && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Ticket adjunto</Label>
             <a 
-              href={reservation.ticket_imagen_url} 
+              href={ticketSignedUrl} 
               target="_blank" 
               rel="noopener noreferrer"
               className="block relative group"
             >
               <img 
-                src={reservation.ticket_imagen_url} 
+                src={ticketSignedUrl} 
                 alt="Ticket de pago"
                 className="w-full max-w-[200px] h-auto rounded-md border border-border object-cover"
               />
