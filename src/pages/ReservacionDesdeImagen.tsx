@@ -1,11 +1,12 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, parse, isValid, isSaturday, isSunday, isPast, startOfDay, getDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { Upload, Camera, X, Loader2, AlertTriangle, CheckCircle2, XCircle, AlertCircle, Info } from "lucide-react";
+import { Upload, Camera, X, Loader2, AlertTriangle, CheckCircle2, XCircle, AlertCircle, Info, ImageDown, Send, Brain, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 import { ReservationForm } from "@/components/ReservationForm";
 import { useReservations } from "@/hooks/useReservations";
 import { toast } from "@/hooks/use-toast";
@@ -41,17 +42,35 @@ interface ValidationResult {
 
 const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
+const PROCESSING_STEPS = [
+  { label: "Comprimiendo imagen...", icon: ImageDown },
+  { label: "Enviando al servidor...", icon: Send },
+  { label: "Analizando con IA...", icon: Brain },
+  { label: "Extrayendo datos...", icon: FileText },
+];
+
+const STEP_PROGRESS = [25, 50, 75, 90];
+
 export default function ReservacionDesdeImagen() {
   const navigate = useNavigate();
   const { addReservation, canAddReservation, getCapacityForSlot, isSlotBlocked, isLoading: reservationsLoading } = useReservations();
   
   const [image, setImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<number | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-advance from step 2 to step 3 after 8 seconds
+  useEffect(() => {
+    if (processingStep === 2) {
+      const timer = setTimeout(() => setProcessingStep(3), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [processingStep]);
 
   // Compress image before processing
   const compressImage = useCallback((base64: string, maxWidth = 1200, quality = 0.7): Promise<string> => {
@@ -269,16 +288,20 @@ export default function ReservacionDesdeImagen() {
     
     setIsProcessing(true);
     setShowValidation(false);
+    setProcessingStep(0);
     
     try {
-      // Compress image before sending to reduce size and prevent timeouts
-      console.log("Compressing image...");
+      // Step 0: Compress image
       const compressedImage = await compressImage(image);
-      console.log("Image compressed, sending to server...");
       
-      // Create abort controller for timeout
+      // Step 1: Sending to server
+      setProcessingStep(1);
+      
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      
+      // Step 2: Analyzing with AI
+      setProcessingStep(2);
       
       const { data, error } = await supabase.functions.invoke("extract-reservation", {
         body: { imageBase64: compressedImage },
@@ -288,7 +311,6 @@ export default function ReservacionDesdeImagen() {
 
       if (error) {
         console.error("Supabase function error:", error);
-        // Handle specific error types
         if (error.message?.includes("FunctionsHttpError")) {
           throw new Error("Error del servidor. Por favor intenta de nuevo.");
         }
@@ -333,6 +355,7 @@ export default function ReservacionDesdeImagen() {
       });
     } finally {
       setIsProcessing(false);
+      setProcessingStep(null);
     }
   };
 
@@ -492,25 +515,51 @@ export default function ReservacionDesdeImagen() {
             </CardContent>
           </Card>
 
-          {image && (
+          {image && !isProcessing && (
             <Button
               onClick={processImage}
-              disabled={isProcessing}
               className="w-full gap-2"
               size="lg"
             >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Analizando imagen...
-                </>
-              ) : (
-                <>
-                  <Camera className="w-4 h-4" />
-                  Analizar y verificar
-                </>
-              )}
+              <Camera className="w-4 h-4" />
+              Analizar y verificar
             </Button>
+          )}
+
+          {image && isProcessing && processingStep !== null && (
+            <Card className="animate-fade-in">
+              <CardContent className="p-5 space-y-4">
+                <Progress value={STEP_PROGRESS[processingStep]} className="h-2" />
+                <div className="space-y-2">
+                  {PROCESSING_STEPS.map((step, index) => {
+                    const StepIcon = step.icon;
+                    const isActive = index === processingStep;
+                    const isCompleted = index < processingStep;
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`flex items-center gap-3 text-sm transition-all duration-300 ${
+                          isActive ? "text-foreground font-medium" : isCompleted ? "text-success" : "text-muted-foreground/40"
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                        ) : isActive ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-accent shrink-0" />
+                        ) : (
+                          <StepIcon className="w-4 h-4 shrink-0" />
+                        )}
+                        <span>{step.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Esto puede tomar unos segundos
+                </p>
+              </CardContent>
+            </Card>
           )}
 
           {!image && (
