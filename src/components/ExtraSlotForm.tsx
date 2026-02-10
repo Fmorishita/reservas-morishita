@@ -1,18 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
-import { TimeSlot, TIME_SLOTS } from "@/types/reservation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -20,7 +13,7 @@ import { cn } from "@/lib/utils";
 interface ExtraSlotFormProps {
   onSubmit: (data: {
     fecha: string;
-    horario: TimeSlot;
+    horario: string;
     motivo: string | null;
   }) => void;
   isSubmitting?: boolean;
@@ -28,21 +21,8 @@ interface ExtraSlotFormProps {
 
 export function ExtraSlotForm({ onSubmit, isSubmitting }: ExtraSlotFormProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-  const [horario, setHorario] = useState<TimeSlot | "">("");
+  const [horario, setHorario] = useState("");
   const [motivo, setMotivo] = useState("");
-
-  const isWeekend = (date: Date) => {
-    const day = date.getDay();
-    return day === 0 || day === 6;
-  };
-
-  // Show all time slots to allow adding any extra session
-  const availableExtraSlots = TIME_SLOTS;
-
-  // Reset horario when date changes
-  useEffect(() => {
-    setHorario("");
-  }, [selectedDate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +30,7 @@ export function ExtraSlotForm({ onSubmit, isSubmitting }: ExtraSlotFormProps) {
 
     onSubmit({
       fecha: format(selectedDate, "yyyy-MM-dd"),
-      horario: horario as TimeSlot,
+      horario,
       motivo: motivo || null,
     });
 
@@ -83,7 +63,6 @@ export function ExtraSlotForm({ onSubmit, isSubmitting }: ExtraSlotFormProps) {
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              disabled={(date) => !isWeekend(date)}
               initialFocus
               className="pointer-events-auto"
             />
@@ -92,19 +71,13 @@ export function ExtraSlotForm({ onSubmit, isSubmitting }: ExtraSlotFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label>Horario extra *</Label>
-        <Select value={horario} onValueChange={(v) => setHorario(v as TimeSlot)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Seleccionar horario" />
-          </SelectTrigger>
-          <SelectContent>
-            {availableExtraSlots.map(({ value, label }) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label>Hora *</Label>
+        <Input
+          type="time"
+          value={horario}
+          onChange={(e) => setHorario(e.target.value)}
+          required
+        />
       </div>
 
       <div className="space-y-2">

@@ -49,11 +49,29 @@ export const getAvailableTimeSlots = (date: Date, extraSlots?: ExtraSlot[]) => {
   
   if (!extraSlots) return baseSlots;
   
-  // Add extra slots for this date that aren't already in baseSlots
+  // Add extra slots for this date
   const extraForDate = extraSlots.filter(es => es.fecha === dateStr);
   const extraTimeSlots = extraForDate
-    .map(es => TIME_SLOTS.find(ts => ts.value === es.horario))
-    .filter((ts): ts is (typeof TIME_SLOTS)[number] => !!ts && !baseSlots.some(bs => bs.value === ts.value));
+    .map(es => {
+      // Check if it matches a predefined slot
+      const predefined = TIME_SLOTS.find(ts => ts.value === es.horario);
+      if (predefined) {
+        if (baseSlots.some(bs => bs.value === predefined.value)) return null;
+        return predefined;
+      }
+      // Custom HH:mm format
+      const [hStr, mStr] = es.horario.split(":");
+      if (!hStr || !mStr) return null;
+      const hour = parseInt(hStr, 10);
+      const minute = parseInt(mStr, 10);
+      return {
+        value: es.horario as TimeSlot,
+        label: formatTimeLabel(es.horario),
+        hour,
+        minute,
+      };
+    })
+    .filter((ts): ts is (typeof TIME_SLOTS)[number] => !!ts);
   
   return [...baseSlots, ...extraTimeSlots].sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
 };
@@ -78,7 +96,23 @@ export const MAX_CAPACITY = 4;
 export interface ExtraSlot {
   id: string;
   fecha: string; // YYYY-MM-DD
-  horario: TimeSlot;
+  horario: string; // "HH:mm" format for custom times, or TimeSlot value
   motivo: string | null;
   created_at: string;
+}
+
+/** Convert "HH:mm" (24h) to readable label like "4:20 pm" */
+export function formatTimeLabel(timeStr: string): string {
+  // Check if it's a predefined TimeSlot
+  const predefined = TIME_SLOTS.find(t => t.value === timeStr);
+  if (predefined) return predefined.label;
+  
+  // Parse HH:mm format
+  const [hStr, mStr] = timeStr.split(":");
+  if (!hStr || !mStr) return timeStr;
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  const suffix = h >= 12 ? "pm" : "am";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
