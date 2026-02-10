@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
-import { TimeSlot, TIME_SLOTS, getAvailableTimeSlots } from "@/types/reservation";
+import { TimeSlot, TIME_SLOTS } from "@/types/reservation";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -36,12 +36,8 @@ export function ExtraSlotForm({ onSubmit, isSubmitting }: ExtraSlotFormProps) {
     return day === 0 || day === 6;
   };
 
-  // Get slots that are NOT normally available for the selected date
-  const unavailableSlots = useMemo(() => {
-    if (!selectedDate) return [];
-    const available = getAvailableTimeSlots(selectedDate);
-    return TIME_SLOTS.filter(slot => !available.some(a => a.value === slot.value));
-  }, [selectedDate]);
+  // Show all time slots to allow adding any extra session
+  const availableExtraSlots = TIME_SLOTS;
 
   // Reset horario when date changes
   useEffect(() => {
@@ -97,24 +93,18 @@ export function ExtraSlotForm({ onSubmit, isSubmitting }: ExtraSlotFormProps) {
 
       <div className="space-y-2">
         <Label>Horario extra *</Label>
-        {selectedDate && unavailableSlots.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Todos los horarios ya están disponibles este día.
-          </p>
-        ) : (
-          <Select value={horario} onValueChange={(v) => setHorario(v as TimeSlot)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar horario" />
-            </SelectTrigger>
-            <SelectContent>
-              {unavailableSlots.map(({ value, label }) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+        <Select value={horario} onValueChange={(v) => setHorario(v as TimeSlot)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Seleccionar horario" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableExtraSlots.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">
