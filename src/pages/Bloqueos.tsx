@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TIME_SLOTS, TimeSlot } from "@/types/reservation";
+import { TIME_SLOTS, formatTimeLabel } from "@/types/reservation";
 import { toast } from "@/hooks/use-toast";
 
 export default function Bloqueos() {
@@ -16,11 +16,11 @@ export default function Bloqueos() {
 
   const handleAddBlock = async (data: {
     fecha: string;
-    horario: TimeSlot | "DIA_COMPLETO";
+    horario: string;
     motivo: string | null;
   }) => {
     try {
-      await addBlock(data);
+      await addBlock(data as any);
       toast({ title: "Bloqueo creado", description: "El horario ha sido bloqueado exitosamente." });
     } catch {
       toast({ title: "Error", description: "No se pudo crear el bloqueo", variant: "destructive" });
@@ -38,7 +38,7 @@ export default function Bloqueos() {
 
   const handleAddExtraSlot = async (data: {
     fecha: string;
-    horario: TimeSlot;
+    horario: string;
     motivo: string | null;
   }) => {
     try {
@@ -151,7 +151,7 @@ export default function Bloqueos() {
               <div className="space-y-3">
                 {sortedExtraSlots.map((slot) => {
                   const date = parseISO(slot.fecha);
-                  const timeLabel = TIME_SLOTS.find((t) => t.value === slot.horario)?.label;
+                  const timeLabel = formatTimeLabel(slot.horario);
 
                   return (
                     <Card key={slot.id} className="animate-fade-in">
