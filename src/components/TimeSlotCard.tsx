@@ -1,4 +1,4 @@
-import { TimeSlot, TIME_SLOTS, MAX_CAPACITY, Reservation, PaymentMethod } from "@/types/reservation";
+import { TimeSlot, TIME_SLOTS, MAX_CAPACITY, Reservation, PaymentMethod, formatTimeLabel } from "@/types/reservation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Lock, Users, Clock, CreditCard, Banknote, Building2, User, Camera, PenLine } from "lucide-react";
@@ -38,7 +38,7 @@ export function TimeSlotCard({
   onReservationClick,
 }: TimeSlotCardProps) {
   const navigate = useNavigate();
-  const timeLabel = TIME_SLOTS.find((t) => t.value === horario)?.label || horario;
+  const timeLabel = formatTimeLabel(horario);
   const isFull = capacity >= MAX_CAPACITY;
   const availableSpots = MAX_CAPACITY - capacity;
   const { isWithin24Hours, isWithin2Hours } = useReminders([]);
