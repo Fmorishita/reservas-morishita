@@ -1,49 +1,74 @@
 
-# Indicador de progreso visual durante el análisis de imagen
+
+# Agregar horarios extra por fecha
 
 ## Resumen
-Reemplazar el simple spinner "Analizando imagen..." por un indicador de progreso con pasos y animaciones que muestre al usuario las etapas del proceso.
+Crear la funcionalidad para agregar sesiones extra en fechas especificas. Por ejemplo, habilitar la sesion de 8:30 pm un domingo especifico aunque normalmente no esta disponible. Esto se manejara desde la misma pagina de Bloqueos, que pasara a llamarse "Gestionar horarios".
 
-## Cambios
+---
 
-### Archivo: `src/pages/ReservacionDesdeImagen.tsx`
+## 1. Nueva tabla en la base de datos: `extra_slots`
 
-**1. Agregar estado para rastrear la etapa actual del proceso**
+Crear una tabla para registrar horarios extra habilitados en fechas especificas:
 
-Nuevo estado `processingStep` con valores del 0 al 3 que avanza automáticamente con timers durante `processImage`:
+| Columna | Tipo | Descripcion |
+|---------|------|-------------|
+| id | uuid | Identificador unico |
+| fecha | date | Fecha del horario extra |
+| horario | text | Horario a habilitar (COMIDA, TARDE, CENA, NOCHE) |
+| motivo | text (nullable) | Razon del horario extra |
+| created_at | timestamptz | Fecha de creacion |
 
-| Paso | Texto | Tiempo aprox. |
-|------|-------|---------------|
-| 0 | Comprimiendo imagen... | 0-2s |
-| 1 | Enviando al servidor... | 2-4s |
-| 2 | Analizando con IA... | 4-15s |
-| 3 | Extrayendo datos... | 15s+ |
+Incluye politicas RLS para staff y admin (mismas que `time_blocks`).
 
-**2. Reemplazar el botón con spinner por un panel de progreso**
+---
 
-Cuando `isProcessing` es `true`, en lugar del botón con `Loader2`, mostrar:
-- Una barra de progreso animada (componente `Progress` ya existente) que avanza según el paso actual (25%, 50%, 75%, 90%)
-- El nombre del paso actual con un icono animado
-- Los pasos completados con checkmarks verdes
-- Texto informativo: "Esto puede tomar unos segundos"
+## 2. Actualizar tipos en `src/types/reservation.ts`
 
-**3. Actualizar `processImage` para cambiar el paso en cada etapa**
+- Agregar interfaz `ExtraSlot` con los campos de la tabla
+- Modificar `getAvailableTimeSlots` para aceptar un segundo parametro opcional `extraSlots: ExtraSlot[]` que agregue horarios extra para esa fecha
 
-```
-processImage:
-  setProcessingStep(0)  --> "Comprimiendo imagen..."
-  await compressImage(...)
-  setProcessingStep(1)  --> "Enviando al servidor..."
-  supabase.functions.invoke(...)
-  setProcessingStep(2)  --> "Analizando con IA..." (se mueve a 3 tras unos segundos)
-  ... resultado recibido
-  setProcessingStep(null)
-```
+---
 
-## Detalles Técnicos
+## 3. Nuevo componente: `ExtraSlotForm`
 
-- Se reutiliza el componente `Progress` de `@/components/ui/progress` ya existente en el proyecto
-- Los pasos se definen como un array constante fuera del componente
-- Se usa `useEffect` para avanzar automáticamente del paso 2 al 3 tras 8 segundos (simula progreso durante la espera de IA)
-- Al completar o fallar, se resetea `processingStep` a `null`
-- Las animaciones usan las clases `animate-fade-in` ya definidas en Tailwind
+Formulario similar a `BlockForm` pero para agregar horarios extra:
+- Selector de fecha (solo fines de semana)
+- Selector de horario (mostrando solo los horarios que NO estan ya disponibles ese dia, es decir, en domingo solo mostrara "8:30 pm")
+- Campo de motivo opcional
+- Boton "Agregar horario extra"
+
+---
+
+## 4. Actualizar `src/hooks/useReservations.ts`
+
+- Agregar estado `extraSlots` y cargarlo junto con reservaciones y bloques
+- Agregar funciones `addExtraSlot` y `removeExtraSlot`
+- Modificar `getAvailableTimeSlots` para considerar los extra slots de cada fecha
+- Exportar `extraSlots`, `addExtraSlot`, `removeExtraSlot`
+
+---
+
+## 5. Actualizar `src/pages/Bloqueos.tsx`
+
+Reorganizar la pagina en dos secciones con tabs:
+- **Tab "Bloquear"**: Formulario y lista de bloqueos (funcionalidad actual)
+- **Tab "Horarios extra"**: Nuevo formulario `ExtraSlotForm` y lista de horarios extra activos con opcion de eliminar
+
+Cambiar el titulo a "Gestionar horarios".
+
+---
+
+## 6. Actualizar `DayAgenda.tsx` y `ReservationForm.tsx`
+
+- Pasar los `extraSlots` a `getAvailableTimeSlots` para que los domingos con horario extra de 8:30 pm lo muestren
+- En `ReservationForm`, las opciones de horario incluiran los extra slots de la fecha seleccionada
+
+---
+
+## Resultado esperado
+
+- Desde la pagina de gestion de horarios, podras agregar un horario extra (ej. 8:30 pm el domingo 15 de febrero)
+- Ese horario aparecera en la agenda y estara disponible para reservaciones solo en esa fecha
+- Los horarios extra se pueden eliminar en cualquier momento
+
