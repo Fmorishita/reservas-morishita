@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 export default function EditarReservacion() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { reservations, isLoading, updateReservation, canAddReservation } = useReservations();
+  const { reservations, isLoading, updateReservation, canAddReservation, extraSlots } = useReservations();
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
@@ -119,6 +119,7 @@ export default function EditarReservacion() {
       
       <ReservationForm
         initialData={reservation}
+        extraSlots={extraSlots}
         onSubmit={handleSubmit}
         onCancel={() => navigate("/")}
         validationError={validationError}

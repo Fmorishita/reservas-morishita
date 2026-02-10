@@ -25,7 +25,7 @@ const navItems: Array<{
   { to: "/", icon: Calendar, label: "Reservas" },
   { to: "/nueva", icon: Plus, label: "Nueva" },
   { to: "/desde-imagen", icon: Camera, label: "Foto" },
-  { to: "/bloqueos", icon: Lock, label: "Bloqueos" },
+  { to: "/bloqueos", icon: Lock, label: "Horarios" },
   { to: "/lista", icon: List, label: "Lista" },
 ];
 

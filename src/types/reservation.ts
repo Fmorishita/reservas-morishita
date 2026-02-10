@@ -42,9 +42,20 @@ export const TIME_SLOTS: { value: TimeSlot; label: string; hour: number; minute:
   { value: "NOCHE", label: "8:30 pm", hour: 20, minute: 30 },
 ];
 
-export const getAvailableTimeSlots = (date: Date) => {
+export const getAvailableTimeSlots = (date: Date, extraSlots?: ExtraSlot[]) => {
   const isSunday = date.getDay() === 0;
-  return TIME_SLOTS.filter(slot => !(isSunday && slot.value === "NOCHE"));
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const baseSlots = TIME_SLOTS.filter(slot => !(isSunday && slot.value === "NOCHE"));
+  
+  if (!extraSlots) return baseSlots;
+  
+  // Add extra slots for this date that aren't already in baseSlots
+  const extraForDate = extraSlots.filter(es => es.fecha === dateStr);
+  const extraTimeSlots = extraForDate
+    .map(es => TIME_SLOTS.find(ts => ts.value === es.horario))
+    .filter((ts): ts is (typeof TIME_SLOTS)[number] => !!ts && !baseSlots.some(bs => bs.value === ts.value));
+  
+  return [...baseSlots, ...extraTimeSlots].sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
 };
 
 export const MENU_TYPES: MenuType[] = ["Omakase 12 tiempos"];
@@ -63,3 +74,11 @@ export const PAYMENT_METHODS: PaymentMethod[] = [
 ];
 
 export const MAX_CAPACITY = 4;
+
+export interface ExtraSlot {
+  id: string;
+  fecha: string; // YYYY-MM-DD
+  horario: TimeSlot;
+  motivo: string | null;
+  created_at: string;
+}
