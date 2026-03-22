@@ -21,7 +21,23 @@ interface ImportCSVModalProps {
   onImport: (reservations: ParsedReservation[]) => Promise<unknown>;
 }
 
-type ParsedReservation = Omit<Reservation, "id" | "created_at" | "updated_at" | "reminder_24h_shown" | "reminder_2h_shown">;
+interface ParsedReservation {
+  fecha: string;
+  horario: string;
+  nombre_cliente: string;
+  whatsapp: string | null;
+  numero_personas: number;
+  tipo_menu: string;
+  estado: string;
+  alergias: string | null;
+  motivo_visita: string | null;
+  metodo_pago: string | null;
+  monto_pagado: number | null;
+  fecha_pago: string | null;
+  ticket_imagen_url: string | null;
+  notas_internas: string | null;
+  notas_pago: string | null;
+}
 
 interface ValidationError {
   row: number;
