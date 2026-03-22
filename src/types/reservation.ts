@@ -42,10 +42,12 @@ export const TIME_SLOTS: { value: TimeSlot; label: string; hour: number; minute:
   { value: "NOCHE", label: "8:30 pm", hour: 20, minute: 30 },
 ];
 
+export type AvailableTimeSlot = { value: string; label: string; hour: number; minute: number };
+
 export const getAvailableTimeSlots = (date: Date, extraSlots?: ExtraSlot[]) => {
   const isSunday = date.getDay() === 0;
   const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  const baseSlots = TIME_SLOTS.filter(slot => !(isSunday && slot.value === "NOCHE"));
+  const baseSlots: AvailableTimeSlot[] = TIME_SLOTS.filter(slot => !(isSunday && slot.value === "NOCHE"));
   
   if (!extraSlots) return baseSlots;
   
@@ -71,7 +73,7 @@ export const getAvailableTimeSlots = (date: Date, extraSlots?: ExtraSlot[]) => {
         minute,
       };
     })
-    .filter((ts): ts is { value: string; label: string; hour: number; minute: number } => !!ts);
+    .filter((ts): ts is AvailableTimeSlot => !!ts);
   
   return [...baseSlots, ...extraTimeSlots].sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
 };
