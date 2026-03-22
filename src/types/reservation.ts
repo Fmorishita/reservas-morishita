@@ -67,7 +67,7 @@ export const getAvailableTimeSlots = (date: Date, extraSlots?: ExtraSlot[]) => {
       const hour = parseInt(hStr, 10);
       const minute = parseInt(mStr, 10);
       return {
-        value: es.horario as TimeSlot,
+        value: es.horario,
         label: formatTimeLabel(es.horario),
         hour,
         minute,
