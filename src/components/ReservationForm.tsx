@@ -7,7 +7,6 @@ import { es } from "date-fns/locale";
 import { CalendarIcon, User, Phone, FileText, AlertTriangle, MessageSquare, Utensils, Users, Clock } from "lucide-react";
 import {
   Reservation,
-  TimeSlot,
   MENU_TYPES,
   RESERVATION_STATUSES,
   MenuType,
@@ -32,9 +31,7 @@ import { cn } from "@/lib/utils";
 
 const reservationSchema = z.object({
   fecha: z.date({ required_error: "Selecciona una fecha" }),
-  horario: z.enum(["COMIDA", "TARDE", "CENA", "NOCHE"] as const, {
-    required_error: "Selecciona un horario",
-  }),
+  horario: z.string().min(1, "Selecciona un horario"),
   numero_personas: z.number().min(1).max(4),
   nombre_cliente: z.string().min(1, "El nombre es requerido").max(100),
   whatsapp: z.string().max(20).optional().or(z.literal("")),
@@ -75,7 +72,7 @@ export function ReservationForm({
     defaultValues: initialData
       ? {
           ...initialData,
-          horario: initialData.horario as TimeSlot,
+          horario: initialData.horario,
           estado: initialData.estado as ReservationStatus,
           tipo_menu: initialData.tipo_menu as MenuType,
           whatsapp: initialData.whatsapp || "",
@@ -99,11 +96,6 @@ export function ReservationForm({
   const selectedHorario = watch("horario");
 
   // Only allow weekends
-  const isWeekend = (date: Date) => {
-    const day = date.getDay();
-    return day === 0 || day === 6;
-  };
-
   // Get available time slots based on selected date
   const availableSlots = useMemo(() => {
     if (!selectedDate) return getAvailableTimeSlots(new Date(), extraSlots);
@@ -113,7 +105,7 @@ export function ReservationForm({
   // Clear horario if NOCHE is selected and date changes to Sunday
   useEffect(() => {
     if (selectedDate && selectedHorario === "NOCHE" && selectedDate.getDay() === 0) {
-      setValue("horario", undefined as unknown as TimeSlot);
+      setValue("horario", "");
     }
   }, [selectedDate, selectedHorario, setValue]);
 
@@ -156,7 +148,7 @@ export function ReservationForm({
                 mode="single"
                 selected={selectedDate}
                 onSelect={(date) => date && setValue("fecha", date)}
-                disabled={(date) => !isWeekend(date) || date < new Date()}
+                disabled={(date) => date < new Date()}
                 initialFocus
                 className="pointer-events-auto"
               />
@@ -172,7 +164,7 @@ export function ReservationForm({
           <Label className="text-sm font-medium">Horario *</Label>
           <Select
             value={watch("horario")}
-            onValueChange={(v) => setValue("horario", v as TimeSlot)}
+            onValueChange={(v) => setValue("horario", v)}
           >
             <SelectTrigger className="h-12 bg-card border-border/50 hover:bg-secondary/50 hover:border-border transition-all duration-300">
               <div className="flex items-center gap-2">

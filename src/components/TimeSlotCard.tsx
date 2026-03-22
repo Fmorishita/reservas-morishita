@@ -1,4 +1,4 @@
-import { TimeSlot, TIME_SLOTS, MAX_CAPACITY, Reservation, PaymentMethod, formatTimeLabel } from "@/types/reservation";
+import { MAX_CAPACITY, Reservation, PaymentMethod, formatTimeLabel } from "@/types/reservation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Lock, Users, Clock, CreditCard, Banknote, Building2, User, Camera, PenLine } from "lucide-react";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface TimeSlotCardProps {
-  horario: TimeSlot;
+  horario: string;
   fecha: string;
   reservations: Reservation[];
   capacity: number;

@@ -6,7 +6,7 @@ export type PaymentMethod = "Efectivo" | "Tarjeta" | "Transferencia";
 export interface Reservation {
   id: string;
   fecha: string; // YYYY-MM-DD
-  horario: TimeSlot;
+  horario: string;
   numero_personas: number;
   nombre_cliente: string;
   whatsapp: string | null;
@@ -71,7 +71,7 @@ export const getAvailableTimeSlots = (date: Date, extraSlots?: ExtraSlot[]) => {
         minute,
       };
     })
-    .filter((ts): ts is (typeof TIME_SLOTS)[number] => !!ts);
+    .filter((ts): ts is { value: string; label: string; hour: number; minute: number } => !!ts);
   
   return [...baseSlots, ...extraTimeSlots].sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
 };

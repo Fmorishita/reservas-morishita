@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { TimeSlot, Reservation, TimeBlock, ExtraSlot, getAvailableTimeSlots } from "@/types/reservation";
+import { Reservation, TimeBlock, ExtraSlot, getAvailableTimeSlots } from "@/types/reservation";
 import { TimeSlotCard } from "./TimeSlotCard";
 import { Badge } from "@/components/ui/badge";
 import { Lock, CalendarX } from "lucide-react";
@@ -10,8 +10,8 @@ interface DayAgendaProps {
   reservations: Reservation[];
   blocks: TimeBlock[];
   extraSlots?: ExtraSlot[];
-  getCapacity: (fecha: string, horario: TimeSlot) => number;
-  isSlotBlocked: (fecha: string, horario: TimeSlot) => boolean;
+  getCapacity: (fecha: string, horario: string) => number;
+  isSlotBlocked: (fecha: string, horario: string) => boolean;
   isDayBlocked: (fecha: string) => boolean;
   onReservationClick?: (reservation: Reservation) => void;
 }
