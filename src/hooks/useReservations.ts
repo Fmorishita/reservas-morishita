@@ -67,7 +67,6 @@ export function useReservations() {
   }, []);
 
   const getReservationsForSlot = useCallback(
-    (fecha: string, horario: TimeSlot) => {
     (fecha: string, horario: string) => {
       return reservations.filter(
         (r) => r.fecha === fecha && r.horario === horario && r.estado !== "Cancelada"
@@ -77,7 +76,6 @@ export function useReservations() {
   );
 
   const getCapacityForSlot = useCallback(
-    (fecha: string, horario: TimeSlot) => {
     (fecha: string, horario: string) => {
       const slotReservations = getReservationsForSlot(fecha, horario);
       return slotReservations.reduce((sum, r) => sum + r.numero_personas, 0);
@@ -86,7 +84,6 @@ export function useReservations() {
   );
 
   const isSlotBlocked = useCallback(
-    (fecha: string, horario: TimeSlot) => {
     (fecha: string, horario: string) => {
       return blocks.some(
         (b) =>
