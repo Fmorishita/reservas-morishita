@@ -11,7 +11,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
-import { TimeSlot, MENU_TYPES } from "@/types/reservation";
+import { TimeSlot, MENU_TYPES, Reservation } from "@/types/reservation";
 import { format, parse, isValid } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -21,23 +21,7 @@ interface ImportCSVModalProps {
   onImport: (reservations: ParsedReservation[]) => Promise<unknown>;
 }
 
-interface ParsedReservation {
-  fecha: string;
-  horario: TimeSlot;
-  nombre_cliente: string;
-  whatsapp: string | null;
-  numero_personas: number;
-  tipo_menu: string;
-  estado: string;
-  alergias: string | null;
-  motivo_visita: string | null;
-  metodo_pago: string | null;
-  monto_pagado: number | null;
-  fecha_pago: string | null;
-  ticket_imagen_url: string | null;
-  notas_internas: string | null;
-  notas_pago: string | null;
-}
+type ParsedReservation = Omit<Reservation, "id" | "created_at" | "updated_at" | "reminder_24h_shown" | "reminder_2h_shown">;
 
 interface ValidationError {
   row: number;

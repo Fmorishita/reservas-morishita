@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Reservation, TimeBlock, TimeSlot, ExtraSlot, MAX_CAPACITY } from "@/types/reservation";
+import { Reservation, TimeBlock, ExtraSlot, MAX_CAPACITY } from "@/types/reservation";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -67,7 +67,7 @@ export function useReservations() {
   }, []);
 
   const getReservationsForSlot = useCallback(
-    (fecha: string, horario: TimeSlot) => {
+    (fecha: string, horario: string) => {
       return reservations.filter(
         (r) => r.fecha === fecha && r.horario === horario && r.estado !== "Cancelada"
       );
@@ -76,7 +76,7 @@ export function useReservations() {
   );
 
   const getCapacityForSlot = useCallback(
-    (fecha: string, horario: TimeSlot) => {
+    (fecha: string, horario: string) => {
       const slotReservations = getReservationsForSlot(fecha, horario);
       return slotReservations.reduce((sum, r) => sum + r.numero_personas, 0);
     },
@@ -84,7 +84,7 @@ export function useReservations() {
   );
 
   const isSlotBlocked = useCallback(
-    (fecha: string, horario: TimeSlot) => {
+    (fecha: string, horario: string) => {
       return blocks.some(
         (b) =>
           b.fecha === fecha && (b.horario === horario || b.horario === "DIA_COMPLETO")
@@ -101,7 +101,7 @@ export function useReservations() {
   );
 
   const canAddReservation = useCallback(
-    (fecha: string, horario: TimeSlot, personas: number, excludeId?: string) => {
+    (fecha: string, horario: string, personas: number, excludeId?: string) => {
       if (isSlotBlocked(fecha, horario)) {
         return { allowed: false, reason: "Este horario está bloqueado" };
       }
