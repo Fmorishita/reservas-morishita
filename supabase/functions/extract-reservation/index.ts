@@ -1,3 +1,10 @@
+// ============================================================
+// MORISHITA — extract-reservation
+// Edge Function que recibe imagen base64 (screenshot de DM)
+// y devuelve datos estructurados de reservación.
+// Usa Google Gemini API directamente (no Lovable AI Gateway).
+// ============================================================
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -5,8 +12,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Input validation constants
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB max
+// Validación de imagen
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const VALID_IMAGE_PREFIXES = [
   "data:image/jpeg",
   "data:image/png",
@@ -49,45 +56,67 @@ Formato de advertencias (ser MUY específico):
 
 La fecha de HOY es: ${new Date().toISOString().split('T')[0]}
 
-Responde SOLO con un objeto JSON válido, sin markdown ni explicaciones adicionales.`;
+Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto extra, sin backticks). Estructura:
+{
+  "fecha": "YYYY-MM-DD",
+  "dia_mencionado": "...",
+  "dia_real": "...",
+  "horario_solicitado": "...",
+  "horario": "COMIDA|TARDE|CENA|NOCHE",
+  "numero_personas": 0,
+  "nombre_cliente": "...",
+  "whatsapp": "...",
+  "motivo_visita": "...",
+  "tipo_menu": "Omakase 12 tiempos",
+  "alergias": "...",
+  "advertencias": []
+}`;
 
-// Validate base64 image data
 function validateImageData(imageBase64: string): { valid: boolean; error?: string } {
-  // Check if it has a valid data URL prefix
-  const hasValidPrefix = VALID_IMAGE_PREFIXES.some(prefix => 
-    imageBase64.toLowerCase().startsWith(prefix)
+  const hasValidPrefix = VALID_IMAGE_PREFIXES.some((prefix) =>
+    imageBase64.startsWith(prefix)
   );
-  
+
   if (!hasValidPrefix && !imageBase64.match(/^[A-Za-z0-9+/=]+$/)) {
     return { valid: false, error: "Formato de imagen no válido" };
   }
-  
-  // Calculate approximate size (base64 is ~33% larger than binary)
-  const base64Data = imageBase64.includes(',') 
-    ? imageBase64.split(',')[1] 
+
+  const base64Data = imageBase64.includes(",")
+    ? imageBase64.split(",")[1]
     : imageBase64;
-  
+
   const estimatedSize = (base64Data.length * 3) / 4;
-  
+
   if (estimatedSize > MAX_IMAGE_SIZE_BYTES) {
     return { valid: false, error: "La imagen es demasiado grande (máximo 5MB)" };
   }
-  
+
   if (base64Data.length < 100) {
     return { valid: false, error: "La imagen parece estar vacía o corrupta" };
   }
-  
+
   return { valid: true };
+}
+
+/**
+ * Detecta el mime type de una imagen base64.
+ * Si viene con prefijo (data:image/png;base64,...) lo extrae;
+ * si no, asume JPEG.
+ */
+function getMimeType(imageBase64: string): string {
+  const match = imageBase64.match(/^data:(image\/[a-z]+);base64,/);
+  if (match) return match[1];
+  return "image/jpeg";
 }
 
 serve(async (req) => {
   console.log("Extract reservation function called");
-  
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Verify authentication
+  // Verificar autenticación (cualquier user logueado en el panel puede llamarla)
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     console.log("Missing or invalid authorization header");
@@ -98,7 +127,6 @@ serve(async (req) => {
   }
 
   try {
-    // Parse and validate request body
     let requestBody;
     try {
       requestBody = await req.json();
@@ -108,9 +136,9 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-    
+
     const { imageBase64 } = requestBody;
-    
+
     if (!imageBase64 || typeof imageBase64 !== "string") {
       return new Response(
         JSON.stringify({ error: "No se proporcionó una imagen válida" }),
@@ -118,7 +146,6 @@ serve(async (req) => {
       );
     }
 
-    // Validate image data
     const validation = validateImageData(imageBase64);
     if (!validation.valid) {
       return new Response(
@@ -127,67 +154,73 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY not configured");
+    // ─── Configuración de Google Gemini ───
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY not configured");
       return new Response(
         JSON.stringify({ error: "Error de configuración del servidor" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Log image size for debugging
-    const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    // Limpiar prefijo data: si viene
+    const base64Data = imageBase64.includes(",")
+      ? imageBase64.split(",")[1]
+      : imageBase64;
+    const mimeType = getMimeType(imageBase64);
     const estimatedSizeKB = Math.round((base64Data.length * 3) / 4 / 1024);
-    console.log(`Processing image, estimated size: ${estimatedSizeKB}KB`);
+    console.log(`Processing image, mime=${mimeType}, size=${estimatedSizeKB}KB`);
 
-    console.log("Calling Lovable AI Gateway with image...");
+    // ─── Llamada a Google Gemini API (formato nativo) ───
+    // Modelo: gemini-2.5-flash (rápido, multimodal, soporta imágenes)
+    // Endpoint oficial de Google AI Studio
+    const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    console.log("Calling Google Gemini API...");
+
+    const response = await fetch(GEMINI_URL, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+        // El system prompt va como systemInstruction (forma nativa de Gemini)
+        systemInstruction: {
+          parts: [{ text: SYSTEM_PROMPT }],
+        },
+        contents: [
           {
             role: "user",
-            content: [
+            parts: [
               {
-                type: "text",
                 text: "Analiza esta imagen y extrae la información de la reservación. Responde SOLO con JSON válido.",
               },
               {
-                type: "image_url",
-                image_url: {
-                  url: imageBase64.startsWith("data:") ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`,
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64Data,
                 },
               },
             ],
           },
         ],
+        generationConfig: {
+          // Pedirle que devuelva JSON estricto (Gemini lo respeta)
+          responseMimeType: "application/json",
+          temperature: 0.2, // baja para más consistencia
+        },
       }),
     });
 
-    console.log(`AI Gateway response status: ${response.status}`);
+    console.log(`Gemini response status: ${response.status}`);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", response.status, errorText);
-      
+      console.error("Gemini API error:", response.status, errorText);
+
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Servicio temporalmente ocupado. Intenta de nuevo en unos segundos." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Servicio no disponible temporalmente." }),
-          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (response.status === 408 || response.status === 504) {
@@ -196,7 +229,7 @@ serve(async (req) => {
           { status: 408, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      
+
       return new Response(
         JSON.stringify({ error: "Error al procesar la imagen. Intenta de nuevo." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -204,26 +237,31 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log("AI response received successfully");
-    
-    const aiContent = data.choices?.[0]?.message?.content;
+    console.log("Gemini response received");
+
+    // ─── Parseo del JSON devuelto por Gemini ───
+    // Estructura típica de Gemini:
+    // { candidates: [ { content: { parts: [ { text: "..." } ] } } ] }
+    const aiContent = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!aiContent) {
-      console.error("No content in AI response");
+      console.error("No content in Gemini response", JSON.stringify(data).slice(0, 500));
       return new Response(
         JSON.stringify({ error: "No se pudo extraer información de la imagen" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Parse the JSON from AI response
     let extractedData;
     try {
-      // Remove markdown code blocks if present
-      const cleanContent = aiContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      // Por si Gemini envuelve en ```json ... ``` (raro con responseMimeType, pero por seguridad)
+      const cleanContent = aiContent
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
       extractedData = JSON.parse(cleanContent);
       console.log("Extracted data successfully");
     } catch (parseError) {
-      console.error("Failed to parse AI response");
+      console.error("Failed to parse Gemini response:", aiContent.slice(0, 300));
       return new Response(
         JSON.stringify({ error: "No se pudo interpretar la información de la imagen" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
