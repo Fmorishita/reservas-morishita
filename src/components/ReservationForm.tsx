@@ -148,7 +148,7 @@ export function ReservationForm({
                 mode="single"
                 selected={selectedDate}
                 onSelect={(date) => date && setValue("fecha", date)}
-                disabled={(date) => date < new Date()}
+                disabled={(date) => { const today = new Date(); today.setHours(0,0,0,0); return date < today; }}
                 initialFocus
                 className="pointer-events-auto"
               />
