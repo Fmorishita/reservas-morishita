@@ -35,7 +35,7 @@ const reservationSchema = z.object({
   numero_personas: z.number().min(1).max(4),
   nombre_cliente: z.string().min(1, "El nombre es requerido").max(100),
   whatsapp: z.string().max(20).optional().or(z.literal("")),
-  tipo_menu: z.enum(["Omakase 12 tiempos"] as const),
+  tipo_menu: z.enum(["Omakase 14 tiempos"] as const),
   motivo_visita: z.string().max(200).optional().or(z.literal("")),
   alergias: z.string().max(500).optional().or(z.literal("")),
   estado: z.enum(["Pendiente", "Confirmada", "Cancelada", "Completada"] as const),
@@ -83,7 +83,7 @@ export function ReservationForm({
         }
       : {
           estado: "Pendiente",
-          tipo_menu: "Omakase 12 tiempos",
+          tipo_menu: "Omakase 14 tiempos",
           numero_personas: 2,
           motivo_visita: "",
           alergias: "",

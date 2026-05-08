@@ -381,7 +381,7 @@ export function ImportCSVModal({ open, onOpenChange, onImport }: ImportCSVModalP
 
   const downloadTemplate = () => {
     const headers = ["Fecha", "Horario", "Nombre", "WhatsApp", "Personas", "Menú", "Estado", "Alergias", "Motivo"];
-    const example = ["2026-01-15", "1:00 pm", "Juan Pérez", "+521234567890", "2", "Omakase 12 tiempos", "Confirmada", "", "Cumpleaños"];
+    const example = ["2026-01-15", "1:00 pm", "Juan Pérez", "+521234567890", "2", "Omakase 14 tiempos", "Confirmada", "", "Cumpleaños"];
     const csvContent = [headers.join(","), example.join(",")].join("\n");
     
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
