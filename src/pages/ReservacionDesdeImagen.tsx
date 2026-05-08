@@ -181,7 +181,7 @@ export default function ReservacionDesdeImagen() {
   };
 
   const normalizeMenuType = (_menu?: string): MenuType => {
-    return "Omakase 12 tiempos";
+    return "Omakase 14 tiempos";
   };
 
   // Perform complete validation of extracted data

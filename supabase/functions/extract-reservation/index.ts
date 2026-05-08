@@ -39,7 +39,7 @@ Información a extraer:
 - nombre_cliente: Nombre del cliente
 - whatsapp: Número de WhatsApp si aparece
 - motivo_visita: Motivo de la visita (cumpleaños, aniversario, negocios, amigos, pareja, etc.)
-- tipo_menu: Siempre "Omakase 12 tiempos" (es el único menú disponible)
+- tipo_menu: Siempre "Omakase 14 tiempos" (es el único menú disponible)
 - alergias: Alergias o restricciones alimentarias mencionadas
 - advertencias: Lista de problemas CRÍTICOS que impiden agendar:
   - Si dia_mencionado NO coincide con dia_real (ej: dicen "sábado 15" pero el 15 es viernes)
@@ -67,7 +67,7 @@ Responde ÚNICAMENTE con un JSON válido (sin markdown, sin texto extra, sin bac
   "nombre_cliente": "...",
   "whatsapp": "...",
   "motivo_visita": "...",
-  "tipo_menu": "Omakase 12 tiempos",
+  "tipo_menu": "Omakase 14 tiempos",
   "alergias": "...",
   "advertencias": []
 }`;

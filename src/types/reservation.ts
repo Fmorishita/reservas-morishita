@@ -1,5 +1,5 @@
 export type TimeSlot = "COMIDA" | "TARDE" | "CENA" | "NOCHE";
-export type MenuType = "Omakase 12 tiempos";
+export type MenuType = "Omakase 14 tiempos";
 export type ReservationStatus = "Pendiente" | "Confirmada" | "Cancelada" | "Completada";
 export type PaymentMethod = "Efectivo" | "Tarjeta" | "Transferencia";
 
@@ -78,7 +78,7 @@ export const getAvailableTimeSlots = (date: Date, extraSlots?: ExtraSlot[]) => {
   return [...baseSlots, ...extraTimeSlots].sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
 };
 
-export const MENU_TYPES: MenuType[] = ["Omakase 12 tiempos"];
+export const MENU_TYPES: MenuType[] = ["Omakase 14 tiempos"];
 
 export const RESERVATION_STATUSES: ReservationStatus[] = [
   "Pendiente",
