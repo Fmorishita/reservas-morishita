@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Calendar, Plus, Lock, List, Camera, LogOut, Shield } from "lucide-react";
+import { Calendar, Plus, Lock, List, Camera, LogOut, Shield, TrendingUp } from "lucide-react";
 import morishitaLogo from "@/assets/morishita-logo.png";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -21,20 +21,26 @@ const navItems: Array<{
   icon: typeof Calendar;
   label: string;
   requiresAdmin?: boolean;
+  requiresStaff?: boolean;
 }> = [
   { to: "/", icon: Calendar, label: "Reservas" },
   { to: "/nueva", icon: Plus, label: "Nueva" },
   { to: "/desde-imagen", icon: Camera, label: "Foto" },
   { to: "/bloqueos", icon: Lock, label: "Horarios" },
   { to: "/lista", icon: List, label: "Lista" },
+  { to: "/finanzas", icon: TrendingUp, label: "Finanzas", requiresStaff: true },
 ];
 
 export function Layout() {
   const navigate = useNavigate();
   const { user, profile, signOut } = useAuth();
-  const { isAdmin } = useUserRole(user?.id);
+  const { isAdmin, isStaff } = useUserRole(user?.id);
 
-  const visibleNavItems = navItems.filter((item) => !item.requiresAdmin || isAdmin);
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.requiresAdmin && !isAdmin) return false;
+    if (item.requiresStaff && !isAdmin && !isStaff) return false;
+    return true;
+  });
 
   const handleSignOut = async () => {
     const { error } = await signOut();

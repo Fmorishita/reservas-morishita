@@ -1,0 +1,47 @@
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { GastoForm } from "@/components/finanzas/GastoForm";
+import { obtenerOCrearSemanaActual } from "@/lib/finanzas/queries";
+import { rangoSemana } from "@/lib/finanzas/formato";
+
+export default function NuevoGasto() {
+  const { data: semana, isLoading, error } = useQuery({
+    queryKey: ["finanzas-semana-actual"],
+    queryFn: obtenerOCrearSemanaActual,
+    staleTime: 60_000,
+  });
+
+  return (
+    <div className="max-w-lg mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <Link to="/finanzas" className="text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+        <div>
+          <h1 className="text-xl font-semibold">Nuevo gasto</h1>
+          {semana && (
+            <p className="text-xs text-muted-foreground">
+              {rangoSemana(semana.fecha_inicio, semana.fecha_fin)}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {isLoading && (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {error && (
+        <p className="text-sm text-destructive text-center py-8">
+          Error al cargar la semana. Intenta de nuevo.
+        </p>
+      )}
+
+      {semana && <GastoForm semanaId={semana.id} />}
+    </div>
+  );
+}

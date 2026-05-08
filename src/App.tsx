@@ -18,6 +18,9 @@ import AdminUsuarios from "./pages/AdminUsuarios";
 import SetupAdmin from "./pages/SetupAdmin";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import FinanzasDashboard from "./pages/finanzas/Dashboard";
+import NuevoGasto from "./pages/finanzas/NuevoGasto";
+import NuevoIngreso from "./pages/finanzas/NuevoIngreso";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +60,31 @@ const App = () => (
                   <AdminRoute>
                     <AdminUsuarios />
                   </AdminRoute>
+                }
+              />
+              {/* Módulo de finanzas — accesible a admin y staff */}
+              <Route
+                path="/finanzas"
+                element={
+                  <StaffRoute>
+                    <FinanzasDashboard />
+                  </StaffRoute>
+                }
+              />
+              <Route
+                path="/finanzas/gastos/nuevo"
+                element={
+                  <StaffRoute>
+                    <NuevoGasto />
+                  </StaffRoute>
+                }
+              />
+              <Route
+                path="/finanzas/ingresos/nuevo"
+                element={
+                  <StaffRoute>
+                    <NuevoIngreso />
+                  </StaffRoute>
                 }
               />
             </Route>
