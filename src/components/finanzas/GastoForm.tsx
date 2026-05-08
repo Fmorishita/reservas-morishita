@@ -29,17 +29,30 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
+type OrigenCombo = "empresa_caja" | "empresa_fondo" | "personal_fran" | "personal_veronica";
+
+function mapOrigen(combo: OrigenCombo): { pagado_por: FormData["pagado_por"]; origen_dinero: FormData["origen_dinero"] } {
+  switch (combo) {
+    case "empresa_caja":      return { pagado_por: "empresa",   origen_dinero: "caja_negocio" };
+    case "empresa_fondo":     return { pagado_por: "empresa",   origen_dinero: "fondo_acumulado" };
+    case "personal_fran":     return { pagado_por: "fran",      origen_dinero: "personal" };
+    case "personal_veronica": return { pagado_por: "veronica",  origen_dinero: "personal" };
+  }
+}
+
 interface GastoFormProps {
   semanaId: string;
 }
 
 export function GastoForm({ semanaId }: GastoFormProps) {
   const navigate = useNavigate();
+  const [origenCombo, setOrigenCombo] = useState<OrigenCombo>("empresa_caja");
+  const [ticketUrl, setTicketUrl] = useState<string>("");
+
   const {
     register,
     handleSubmit,
     setValue,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -51,15 +64,15 @@ export function GastoForm({ semanaId }: GastoFormProps) {
     },
   });
 
-  const pagadoPor = watch("pagado_por");
-  const [ticketUrl, setTicketUrl] = useState<string>("");
+  const handleOrigenChange = (value: string) => {
+    const combo = value as OrigenCombo;
+    setOrigenCombo(combo);
+    const { pagado_por, origen_dinero } = mapOrigen(combo);
+    setValue("pagado_por", pagado_por);
+    setValue("origen_dinero", origen_dinero);
+  };
 
   const onSubmit = async (data: FormData) => {
-    // Constraint: empresa no puede pagar con dinero personal
-    if (data.pagado_por === "empresa" && data.origen_dinero === "personal") {
-      toast.error("Si pagó la empresa, el origen no puede ser 'personal'");
-      return;
-    }
     try {
       await crearGasto({
         semana_id: semanaId,
@@ -73,6 +86,8 @@ export function GastoForm({ semanaId }: GastoFormProps) {
       toast.error(msg);
     }
   };
+
+  const esPersonal = origenCombo === "personal_fran" || origenCombo === "personal_veronica";
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -113,42 +128,24 @@ export function GastoForm({ semanaId }: GastoFormProps) {
         </Select>
       </div>
 
-      {/* Pagado por */}
+      {/* Origen del dinero — selector único */}
       <div className="space-y-1.5">
-        <Label>Pagado por</Label>
-        <Select defaultValue="empresa" onValueChange={(v) => setValue("pagado_por", v as FormData["pagado_por"])}>
+        <Label>¿Con qué dinero se pagó?</Label>
+        <Select defaultValue="empresa_caja" onValueChange={handleOrigenChange}>
           <SelectTrigger className="h-12">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="fran">Francisco (Fran)</SelectItem>
-            <SelectItem value="veronica">Verónica</SelectItem>
-            <SelectItem value="empresa">Empresa / Caja</SelectItem>
+            <SelectItem value="empresa_caja">Caja del negocio</SelectItem>
+            <SelectItem value="empresa_fondo">Fondo acumulado</SelectItem>
+            <SelectItem value="personal_fran">Personal Fran (reembolso automático)</SelectItem>
+            <SelectItem value="personal_veronica">Personal Verónica (reembolso automático)</SelectItem>
           </SelectContent>
         </Select>
-      </div>
-
-      {/* Origen del dinero */}
-      <div className="space-y-1.5">
-        <Label>Origen del dinero</Label>
-        <Select
-          defaultValue="caja_negocio"
-          onValueChange={(v) => setValue("origen_dinero", v as FormData["origen_dinero"])}
-        >
-          <SelectTrigger className="h-12">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {pagadoPor !== "empresa" && (
-              <SelectItem value="personal">Personal (genera reembolso)</SelectItem>
-            )}
-            <SelectItem value="caja_negocio">Caja del negocio</SelectItem>
-            <SelectItem value="fondo_acumulado">Fondo acumulado</SelectItem>
-          </SelectContent>
-        </Select>
-        {pagadoPor !== "empresa" && (
+        {esPersonal && (
           <p className="text-xs text-amber-600">
-            Si el origen es "personal", se generará un reembolso para ese socio.
+            Este gasto generará un reembolso para{" "}
+            {origenCombo === "personal_fran" ? "Francisco" : "Verónica"} al hacer el corte semanal.
           </p>
         )}
       </div>

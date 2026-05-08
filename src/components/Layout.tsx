@@ -120,7 +120,7 @@ export function Layout() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 container py-6 pb-24 md:pb-8">
+      <main className="flex-1 container py-6 pb-24 md:pt-20 md:pb-8">
         <Outlet />
       </main>
 
