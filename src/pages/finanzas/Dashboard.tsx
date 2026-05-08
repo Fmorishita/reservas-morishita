@@ -1,41 +1,94 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Plus, Minus, RefreshCw } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  CalendarDays,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  obtenerOCrearSemanaActual,
-  obtenerDatosParaCorte,
-} from "@/lib/finanzas/queries";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { obtenerDatosPorRango } from "@/lib/finanzas/queries";
 import { calcularCorteSemanal } from "@/lib/finanzas/calculo";
-import { formatoMoneda, rangoSemana } from "@/lib/finanzas/formato";
+import {
+  formatoMoneda,
+  rangoSemana,
+  lunesDeLaSemana,
+  domingoDeLaSemana,
+  sumarDias,
+} from "@/lib/finanzas/formato";
+import {
+  exportarIngresosCSV,
+  exportarGastosCSV,
+  exportarReporteCompleto,
+} from "@/lib/finanzas/exportar";
+import {
+  IngresosPorDia,
+  BreakdownIngresos,
+  MetodosDePago,
+  GastosPorCategoria,
+} from "@/components/finanzas/Charts";
+import { HistorialIngresos } from "@/components/finanzas/HistorialIngresos";
+import type { Semana } from "@/lib/finanzas/types";
 
 export default function FinanzasDashboard() {
-  const {
-    data: semana,
-    isLoading: semanaLoading,
-    error: semanaError,
-    refetch,
-  } = useQuery({
-    queryKey: ["finanzas-semana-actual"],
-    queryFn: obtenerOCrearSemanaActual,
-    staleTime: 30_000,
-  });
+  // Cursor de la semana visible (lunes de la semana)
+  const [cursor, setCursor] = useState<string>(() => lunesDeLaSemana());
+  const inicio = cursor;
+  const fin = domingoDeLaSemana(new Date(cursor + "T12:00:00"));
 
   const {
-    data: datos,
-    isLoading: datosLoading,
+    data,
+    isLoading,
+    error,
+    refetch,
   } = useQuery({
-    queryKey: ["finanzas-datos-corte", semana?.id],
-    queryFn: () => obtenerDatosParaCorte(semana!.id),
-    enabled: !!semana?.id,
+    queryKey: ["finanzas-rango", inicio, fin],
+    queryFn: () => obtenerDatosPorRango(inicio, fin),
     staleTime: 15_000,
   });
 
-  const corte = datos ? calcularCorteSemanal(datos) : null;
-  const isLoading = semanaLoading || datosLoading;
+  // Para que `calcularCorteSemanal` funcione siempre, sintetizamos una semana
+  // si no existe en BD (semana pasada nunca abierta).
+  const semanaParaCalculo: Semana = data?.semana ?? {
+    id: "synthetic",
+    fecha_inicio: inicio,
+    fecha_fin: fin,
+    estado: "abierta",
+    arrastre_anterior: 0,
+    notas: null,
+    cerrada_en: null,
+  };
 
-  if (semanaError) {
+  const corte = data
+    ? calcularCorteSemanal({
+        semana: semanaParaCalculo,
+        ingresos_depositos: data.ingresos_depositos,
+        ingresos_sitio: data.ingresos_sitio,
+        gastos: data.gastos,
+      })
+    : null;
+
+  const esSemanaActual = inicio === lunesDeLaSemana();
+
+  const irSemanaAnterior = () => setCursor(sumarDias(inicio, -7));
+  const irSemanaSiguiente = () => setCursor(sumarDias(inicio, 7));
+  const irSemanaActual = () => setCursor(lunesDeLaSemana());
+
+  if (error) {
     return (
       <div className="text-center py-12 space-y-3">
         <p className="text-destructive text-sm">Error al cargar datos de finanzas.</p>
@@ -47,107 +100,173 @@ export default function FinanzasDashboard() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
-      {/* Header */}
-      <div>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Semana actual</p>
-        {isLoading ? (
-          <Skeleton className="h-7 w-48 mt-1" />
-        ) : semana ? (
-          <h2 className="text-2xl font-semibold">
-            {rangoSemana(semana.fecha_inicio, semana.fecha_fin)}
-          </h2>
-        ) : null}
-        {semana?.arrastre_anterior !== 0 && semana && (
-          <p className="text-sm text-amber-600 mt-0.5">
-            Arrastre anterior: {formatoMoneda(semana.arrastre_anterior)}
+    <div className="space-y-6 max-w-3xl mx-auto">
+      {/* Navegación de semana */}
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="ghost" size="icon" onClick={irSemanaAnterior} className="rounded-full" aria-label="Semana anterior">
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        <div className="text-center min-w-0 flex-1">
+          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+            {esSemanaActual ? "Semana actual" : "Semana"}
           </p>
-        )}
+          {isLoading ? (
+            <Skeleton className="h-6 w-40 mx-auto mt-1" />
+          ) : (
+            <h2 className="text-lg md:text-xl font-semibold truncate">
+              {rangoSemana(inicio, fin)}
+            </h2>
+          )}
+          {!esSemanaActual && (
+            <button
+              onClick={irSemanaActual}
+              className="text-[11px] text-gold hover:underline mt-0.5 inline-flex items-center gap-1"
+            >
+              <CalendarDays className="w-3 h-3" /> Volver a la semana actual
+            </button>
+          )}
+        </div>
+        <Button variant="ghost" size="icon" onClick={irSemanaSiguiente} className="rounded-full" aria-label="Semana siguiente">
+          <ChevronRight className="w-4 h-4" />
+        </Button>
       </div>
 
-      {/* Acciones rápidas */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button asChild variant="outline" className="h-14 text-sm flex-col gap-1">
-          <Link to="/finanzas/gastos/nuevo">
-            <Minus className="w-5 h-5 text-destructive" />
-            Nuevo gasto
-          </Link>
-        </Button>
-        <Button asChild variant="outline" className="h-14 text-sm flex-col gap-1">
+      {/* Acciones rápidas + export */}
+      <div className="grid grid-cols-3 gap-2">
+        <Button asChild variant="outline" className="h-12 text-xs flex-col gap-0.5">
           <Link to="/finanzas/ingresos/nuevo">
-            <Plus className="w-5 h-5 text-emerald-600" />
-            Nuevo ingreso
+            <Plus className="w-4 h-4 text-emerald-600" />
+            Ingreso
           </Link>
         </Button>
+        <Button asChild variant="outline" className="h-12 text-xs flex-col gap-0.5">
+          <Link to="/finanzas/gastos/nuevo">
+            <Minus className="w-4 h-4 text-destructive" />
+            Gasto
+          </Link>
+        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="h-12 text-xs flex-col gap-0.5" disabled={!data}>
+              <Download className="w-4 h-4 text-gold" />
+              Exportar
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem
+              onClick={() => data && exportarReporteCompleto({
+                movimientos: data.movimientos,
+                gastos: data.gastos,
+                rango: { inicio, fin },
+                resumen: {
+                  ingresos_totales: corte?.ingresos_totales ?? 0,
+                  gastos_totales: corte?.gastos_totales ?? 0,
+                  utilidad_bruta: corte?.utilidad_bruta ?? 0,
+                  reembolso_fran: corte?.reembolso_fran ?? 0,
+                  reembolso_veronica: corte?.reembolso_veronica ?? 0,
+                },
+              })}
+            >
+              Reporte completo (CSV)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => data && exportarIngresosCSV(data.movimientos, { inicio, fin })}
+            >
+              Solo ingresos (CSV)
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => data && exportarGastosCSV(data.gastos, { inicio, fin })}
+            >
+              Solo gastos (CSV)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {/* Big numbers */}
+      {/* Big metrics */}
       {isLoading ? (
         <div className="grid grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 rounded-2xl" />
+            <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
       ) : corte ? (
-        <div className="grid grid-cols-2 gap-3">
-          <BigCard label="Ingresos" value={formatoMoneda(corte.ingresos_totales)} color="emerald" />
-          <BigCard label="Gastos" value={formatoMoneda(corte.gastos_totales)} color="red" />
-          <BigCard
-            label="Utilidad bruta"
-            value={formatoMoneda(corte.utilidad_bruta)}
-            color={corte.utilidad_bruta >= 0 ? "emerald" : "red"}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <MetricCard
+            icon={<TrendingUp className="w-4 h-4" />}
+            label="Ingresos"
+            value={formatoMoneda(corte.ingresos_totales)}
+            tone="emerald"
+            sub={`${data?.movimientos.length ?? 0} movs.`}
           />
-          <BigCard label="A repartir" value={formatoMoneda(corte.utilidad_distribuible)} color="neutral" />
+          <MetricCard
+            icon={<TrendingDown className="w-4 h-4" />}
+            label="Gastos"
+            value={formatoMoneda(corte.gastos_totales)}
+            tone="red"
+            sub={`${data?.gastos.length ?? 0} gastos`}
+          />
+          <MetricCard
+            icon={<Wallet className="w-4 h-4" />}
+            label="Utilidad"
+            value={formatoMoneda(corte.utilidad_bruta)}
+            tone={corte.utilidad_bruta >= 0 ? "emerald" : "red"}
+          />
+          <MetricCard
+            icon={<Wallet className="w-4 h-4" />}
+            label="A repartir"
+            value={formatoMoneda(corte.utilidad_distribuible)}
+            tone="neutral"
+          />
         </div>
       ) : null}
 
-      {/* Desglose ingresos */}
-      {corte && (
+      {/* Charts */}
+      {!isLoading && data && data.movimientos.length + data.gastos.length > 0 && (
         <>
-          <Section title="Ingresos">
-            <Row label="Depósitos de reservas" value={corte.ingresos_depositos} />
-            <Row label="Pagos en sitio" value={corte.ingresos_sitio_total} />
-            <Row label="Total" value={corte.ingresos_totales} bold />
-          </Section>
+          <IngresosPorDia movimientos={data.movimientos} rango={{ inicio, fin }} />
 
-          <Section title="Gastos por tipo">
-            <Row label="Insumos" value={corte.gastos_por_tipo.insumos} />
-            <Row label="Publicidad" value={corte.gastos_por_tipo.publicidad} />
-            <Row label="Operación" value={corte.gastos_por_tipo.operacion} />
-            <Row label="Total" value={corte.gastos_totales} bold />
-          </Section>
+          <div className="grid md:grid-cols-2 gap-3">
+            <BreakdownIngresos movimientos={data.movimientos} />
+            <MetodosDePago movimientos={data.movimientos} />
+          </div>
 
+          <GastosPorCategoria gastos={data.gastos} />
+        </>
+      )}
+
+      {/* Historial de ventas */}
+      {!isLoading && data && (
+        <HistorialIngresos movimientos={data.movimientos} />
+      )}
+
+      {/* Reembolsos y distribución */}
+      {corte && (corte.reembolsos_totales > 0 || corte.utilidad_distribuible > 0) && (
+        <div className="grid md:grid-cols-2 gap-3">
           <Section title="Reembolsos pendientes">
             <Row label="Fran" value={corte.reembolso_fran} />
             <Row label="Verónica" value={corte.reembolso_veronica} />
             <Row label="Total" value={corte.reembolsos_totales} bold />
           </Section>
-
           <Section title="Distribución estimada">
             <Row label="Fran recibe" value={corte.fran_recibe} />
             <Row label="Verónica recibe" value={corte.veronica_recibe} />
           </Section>
-
-          {corte.alertas.length > 0 && (
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-sm space-y-1">
-              {corte.alertas.map((a, i) => (
-                <p key={i} className="text-amber-800">⚠ {a}</p>
-              ))}
-            </div>
-          )}
-
-          {!corte.cuadra && (
-            <div className="p-4 bg-destructive/10 border border-destructive/30 rounded-2xl text-sm text-destructive">
-              ⛔ El cuadre no coincide. Revisar manualmente antes de cerrar.
-            </div>
-          )}
-        </>
+        </div>
       )}
 
-      {/* Estado vacío */}
-      {!isLoading && corte && corte.ingresos_totales === 0 && corte.gastos_totales === 0 && (
+      {/* Alertas / cuadre */}
+      {corte?.alertas && corte.alertas.length > 0 && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-sm space-y-1">
+          {corte.alertas.map((a, i) => (
+            <p key={i} className="text-amber-700 dark:text-amber-400">⚠ {a}</p>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && data && data.movimientos.length === 0 && data.gastos.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-6">
-          Sin movimientos esta semana. Usa los botones de arriba para capturar.
+          Sin movimientos en este rango. Captura un gasto, registra un ingreso o confirma una reserva.
         </p>
       )}
     </div>
@@ -156,24 +275,32 @@ export default function FinanzasDashboard() {
 
 /* --- Sub-componentes --- */
 
-function BigCard({
+function MetricCard({
+  icon,
   label,
   value,
-  color,
+  sub,
+  tone,
 }: {
+  icon: React.ReactNode;
   label: string;
   value: string;
-  color: "emerald" | "red" | "neutral";
+  sub?: string;
+  tone: "emerald" | "red" | "neutral";
 }) {
   const colors = {
-    emerald: "text-emerald-700",
-    red: "text-red-600",
+    emerald: "text-emerald-700 dark:text-emerald-400",
+    red: "text-red-600 dark:text-red-400",
     neutral: "text-foreground",
   } as const;
   return (
     <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`text-xl font-semibold mt-1 tabular-nums ${colors[color]}`}>{value}</p>
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        {icon}
+        <p className="text-[10px] uppercase tracking-wide">{label}</p>
+      </div>
+      <p className={`text-lg md:text-xl font-semibold mt-1 tabular-nums ${colors[tone]}`}>{value}</p>
+      {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
     </div>
   );
 }

@@ -4,7 +4,7 @@
  */
 
 export type EstadoSemana = 'abierta' | 'cerrada';
-export type MetodoPago = 'efectivo' | 'transferencia' | 'cohete' | 'terminal';
+export type MetodoPago = 'efectivo' | 'transferencia' | 'terminal';
 export type TipoGasto = 'insumos' | 'publicidad' | 'operacion';
 export type Pagador = 'fran' | 'veronica' | 'empresa';
 export type OrigenDinero = 'personal' | 'caja_negocio' | 'fondo_acumulado';
@@ -92,6 +92,30 @@ export interface Dispersion {
   metodo: MetodoPago | null;
   fecha_ejecucion: string | null;
   conciliado: boolean;
+}
+
+/**
+ * Tipo de movimiento de ingreso unificado (line-item desde la view SQL).
+ */
+export type TipoMovimientoIngreso =
+  | 'deposito_reserva'      // 50% al confirmar
+  | 'pago_sitio_reserva'    // 50% restante al completar
+  | 'ingreso_sitio';        // walk-in / evento / otro
+
+export interface MovimientoIngreso {
+  id: string;
+  tipo: TipoMovimientoIngreso;
+  reserva_id: string | null;
+  ingreso_sitio_id: string | null;
+  fecha: string;            // YYYY-MM-DD
+  fecha_ts: string;         // ISO timestamp
+  monto: number;
+  metodo: string;           // texto libre (efectivo, transferencia, terminal, ...)
+  nombre_cliente: string | null;
+  numero_personas: number | null;
+  tipo_menu: string | null;
+  estado_reserva: string | null;
+  descripcion: string;
 }
 
 /**

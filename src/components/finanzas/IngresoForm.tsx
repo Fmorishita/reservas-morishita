@@ -19,7 +19,7 @@ import { crearIngresoSitio } from "@/lib/finanzas/queries";
 const schema = z.object({
   fecha: z.string().min(1, "Fecha requerida"),
   monto: z.coerce.number().positive("El monto debe ser positivo"),
-  metodo: z.enum(["efectivo", "transferencia", "cohete", "terminal"]),
+  metodo: z.enum(["efectivo", "transferencia", "terminal"]),
   descripcion: z.string().optional(),
 });
 
@@ -86,7 +86,6 @@ export function IngresoForm({ semanaId }: IngresoFormProps) {
           <SelectContent>
             <SelectItem value="efectivo">Efectivo</SelectItem>
             <SelectItem value="transferencia">Transferencia</SelectItem>
-            <SelectItem value="cohete">Cohete</SelectItem>
             <SelectItem value="terminal">Terminal (tarjeta)</SelectItem>
           </SelectContent>
         </Select>

@@ -12,6 +12,7 @@ import type {
   DatosSemanaParaCalculo,
   Gasto,
   IngresoSitio,
+  MovimientoIngreso,
   Semana,
   Socio,
   TipoGasto,
@@ -28,8 +29,12 @@ const db = supabase as any;
 /* ----------------------------- SEMANAS ------------------------------ */
 
 export async function obtenerOCrearSemanaActual(): Promise<Semana> {
-  const inicio = lunesDeLaSemana();
-  const fin = domingoDeLaSemana();
+  return obtenerOCrearSemanaParaFecha(new Date());
+}
+
+export async function obtenerOCrearSemanaParaFecha(fecha: Date): Promise<Semana> {
+  const inicio = lunesDeLaSemana(fecha);
+  const fin = domingoDeLaSemana(fecha);
 
   const { data: existente } = await db
     .from("semanas")
@@ -125,6 +130,16 @@ export async function listarGastosDeSemana(semanaId: string): Promise<Gasto[]> {
   return (data ?? []) as Gasto[];
 }
 
+export async function listarGastosPorRango(inicio: string, fin: string): Promise<Gasto[]> {
+  const { data } = await db
+    .from("gastos")
+    .select("*")
+    .gte("fecha", inicio)
+    .lte("fecha", fin)
+    .order("fecha", { ascending: true });
+  return (data ?? []) as Gasto[];
+}
+
 /* ------------------------- INGRESOS EN SITIO ------------------------ */
 
 export interface NuevoIngresoSitio {
@@ -168,6 +183,19 @@ export async function listarIngresosSitioDeSemana(semanaId: string): Promise<Ing
   return (data ?? []) as IngresoSitio[];
 }
 
+export async function listarIngresosSitioPorRango(
+  inicio: string,
+  fin: string,
+): Promise<IngresoSitio[]> {
+  const { data } = await db
+    .from("ingresos_sitio")
+    .select("*")
+    .gte("fecha", inicio)
+    .lte("fecha", fin)
+    .order("fecha", { ascending: true });
+  return (data ?? []) as IngresoSitio[];
+}
+
 /* -------------------- DEPÓSITOS DE RESERVAS ------------------------- */
 
 export async function obtenerDepositosDeSemana(semanaId: string): Promise<number> {
@@ -182,6 +210,30 @@ export async function obtenerDepositosDeSemana(semanaId: string): Promise<number
     return 0;
   }
   return Number(data?.total_depositos ?? 0);
+}
+
+/* -------------------- MOVIMIENTOS DE INGRESO (LINE ITEMS) ----------- */
+
+/**
+ * Lista todos los movimientos de ingreso (anticipos, pagos en sitio,
+ * walk-ins) entre dos fechas. Útil para el historial y los exports.
+ */
+export async function listarMovimientosIngreso(
+  fechaInicio: string,
+  fechaFin: string,
+): Promise<MovimientoIngreso[]> {
+  const { data, error } = await db
+    .from("v_ingresos_unificados")
+    .select("*")
+    .gte("fecha", fechaInicio)
+    .lte("fecha", fechaFin)
+    .order("fecha_ts", { ascending: false });
+
+  if (error) {
+    console.warn("[finanzas] v_ingresos_unificados no disponible:", error.message);
+    return [];
+  }
+  return (data ?? []) as MovimientoIngreso[];
 }
 
 /* --------------------- DATOS COMPLETOS PARA CÁLCULO ----------------- */
@@ -199,6 +251,54 @@ export async function obtenerDatosParaCorte(
   ]);
 
   return { semana, ingresos_depositos, ingresos_sitio, gastos };
+}
+
+/* --------------------- DATOS POR RANGO (DASHBOARD) ------------------ */
+
+export interface DatosRangoFinanzas {
+  fecha_inicio: string;
+  fecha_fin: string;
+  movimientos: MovimientoIngreso[];
+  ingresos_sitio: IngresoSitio[];
+  ingresos_depositos: number;
+  gastos: Gasto[];
+  semana: Semana | null;
+}
+
+/**
+ * Obtiene todos los datos financieros para un rango arbitrario de fechas.
+ * No requiere que exista una fila en `semanas` (útil para ver semanas pasadas
+ * sin polucionar la tabla).
+ */
+export async function obtenerDatosPorRango(
+  inicio: string,
+  fin: string,
+): Promise<DatosRangoFinanzas> {
+  const [movimientos, gastos, ingresos_sitio, semanaResp] = await Promise.all([
+    listarMovimientosIngreso(inicio, fin),
+    listarGastosPorRango(inicio, fin),
+    listarIngresosSitioPorRango(inicio, fin),
+    db
+      .from("semanas")
+      .select("*")
+      .eq("fecha_inicio", inicio)
+      .eq("fecha_fin", fin)
+      .maybeSingle(),
+  ]);
+
+  const ingresos_depositos = movimientos
+    .filter((m) => m.tipo === "deposito_reserva" || m.tipo === "pago_sitio_reserva")
+    .reduce((s, m) => s + Number(m.monto), 0);
+
+  return {
+    fecha_inicio: inicio,
+    fecha_fin: fin,
+    movimientos,
+    ingresos_sitio,
+    ingresos_depositos,
+    gastos,
+    semana: (semanaResp.data ?? null) as Semana | null,
+  };
 }
 
 /* ------------------------------ SOCIOS ------------------------------ */
