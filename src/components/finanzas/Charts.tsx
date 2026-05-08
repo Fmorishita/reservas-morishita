@@ -16,6 +16,91 @@ import {
 import type { Gasto, MovimientoIngreso } from "@/lib/finanzas/types";
 import { formatoMoneda, formatoFechaCorta, sumarDias } from "@/lib/finanzas/formato";
 
+type Granularidad = 'dia' | 'semana' | 'mes';
+
+function elegirGranularidad(inicio: string, fin: string): Granularidad {
+  const dias = Math.round(
+    (new Date(fin).getTime() - new Date(inicio).getTime()) / 86_400_000
+  );
+  if (dias <= 14) return 'dia';
+  if (dias <= 92) return 'semana';
+  return 'mes';
+}
+
+type Bucket = { key: string; label: string; anticipos: number; sitio: number; manual: number };
+
+function construirBuckets(
+  movimientos: MovimientoIngreso[],
+  inicio: string,
+  fin: string,
+  gran: Granularidad,
+): Bucket[] {
+  const map = new Map<string, Bucket>();
+
+  if (gran === 'dia') {
+    let cur = inicio;
+    while (cur <= fin) {
+      map.set(cur, { key: cur, label: formatoFechaCorta(cur), anticipos: 0, sitio: 0, manual: 0 });
+      cur = sumarDias(cur, 1);
+    }
+  } else if (gran === 'semana') {
+    let cur = inicio;
+    while (cur <= fin) {
+      // agrupa lunes→domingo
+      const k = cur;
+      if (!map.has(k)) map.set(k, { key: k, label: formatoFechaCorta(k), anticipos: 0, sitio: 0, manual: 0 });
+      cur = sumarDias(cur, 7);
+    }
+  } else {
+    // mes: iterar por meses
+    const dInicio = new Date(inicio + 'T12:00:00');
+    const dFin = new Date(fin + 'T12:00:00');
+    let anio = dInicio.getFullYear();
+    let mes = dInicio.getMonth();
+    while (anio < dFin.getFullYear() || (anio === dFin.getFullYear() && mes <= dFin.getMonth())) {
+      const k = `${anio}-${String(mes + 1).padStart(2, '0')}-01`;
+      const label = new Intl.DateTimeFormat('es-MX', { month: 'short', year: '2-digit' }).format(
+        new Date(anio, mes, 1)
+      );
+      map.set(k, { key: k, label, anticipos: 0, sitio: 0, manual: 0 });
+      mes++;
+      if (mes > 11) { mes = 0; anio++; }
+    }
+  }
+
+  // asignar movimientos a buckets
+  movimientos.forEach((m) => {
+    const monto = Number(m.monto);
+    let bkey: string | undefined;
+
+    if (gran === 'dia') {
+      bkey = m.fecha;
+    } else if (gran === 'semana') {
+      // encontrar el lunes de esa semana
+      const d = new Date(m.fecha + 'T12:00:00');
+      const dia = d.getDay();
+      const diff = dia === 0 ? -6 : 1 - dia;
+      d.setDate(d.getDate() + diff);
+      const lunes = d.toISOString().slice(0, 10);
+      // usar el bucket más cercano al inicio si el lunes no está en el map
+      bkey = [...map.keys()].reduce((prev, cur) => {
+        return Math.abs(new Date(cur).getTime() - new Date(lunes).getTime()) <
+               Math.abs(new Date(prev).getTime() - new Date(lunes).getTime()) ? cur : prev;
+      }, [...map.keys()][0]);
+    } else {
+      bkey = m.fecha.slice(0, 7) + '-01';
+    }
+
+    const bucket = bkey ? map.get(bkey) : undefined;
+    if (!bucket) return;
+    if (m.tipo === 'deposito_reserva') bucket.anticipos += monto;
+    else if (m.tipo === 'pago_sitio_reserva') bucket.sitio += monto;
+    else bucket.manual += monto;
+  });
+
+  return [...map.values()];
+}
+
 const PALETA_INGRESOS = ["#10b981", "#3b82f6", "#a855f7"];
 const PALETA_METODOS = ["#f59e0b", "#06b6d4", "#ec4899", "#84cc16"];
 const PALETA_GASTOS = ["#ef4444", "#f97316", "#eab308"];
@@ -26,7 +111,7 @@ interface RangoFechas {
 }
 
 /* ============================================================
- * INGRESOS POR DÍA — line chart con anticipos vs sitio
+ * INGRESOS POR PERÍODO — line chart adaptable (día/semana/mes)
  * ============================================================ */
 export function IngresosPorDia({
   movimientos,
@@ -35,41 +120,31 @@ export function IngresosPorDia({
   movimientos: MovimientoIngreso[];
   rango: RangoFechas;
 }) {
-  const dias: { fecha: string; label: string; anticipos: number; sitio: number; manual: number; total: number }[] = [];
-  let cursor = rango.inicio;
-  while (cursor <= rango.fin) {
-    dias.push({
-      fecha: cursor,
-      label: formatoFechaCorta(cursor),
-      anticipos: 0,
-      sitio: 0,
-      manual: 0,
-      total: 0,
-    });
-    cursor = sumarDias(cursor, 1);
-  }
+  const gran = elegirGranularidad(rango.inicio, rango.fin);
+  const data = construirBuckets(movimientos, rango.inicio, rango.fin, gran);
 
-  movimientos.forEach((m) => {
-    const dia = dias.find((d) => d.fecha === m.fecha);
-    if (!dia) return;
-    const monto = Number(m.monto);
-    if (m.tipo === "deposito_reserva") dia.anticipos += monto;
-    else if (m.tipo === "pago_sitio_reserva") dia.sitio += monto;
-    else dia.manual += monto;
-    dia.total += monto;
-  });
+  const granLabel = gran === 'dia' ? 'Ingresos por día'
+    : gran === 'semana' ? 'Ingresos por semana'
+    : 'Ingresos por mes';
+
+  const dotSize = gran === 'mes' ? 5 : 3;
 
   return (
     <div className="bg-card rounded-2xl p-4 border border-border">
-      <h3 className="text-sm font-semibold mb-3">Ingresos por día</h3>
+      <h3 className="text-sm font-semibold mb-3">{granLabel}</h3>
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={dias} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
-          <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+          <XAxis
+            dataKey="label"
+            tick={{ fontSize: 11 }}
+            stroke="hsl(var(--muted-foreground))"
+            interval="preserveStartEnd"
+          />
           <YAxis
             tick={{ fontSize: 11 }}
             stroke="hsl(var(--muted-foreground))"
-            tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+            tickFormatter={(v: number) => v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v}`}
           />
           <Tooltip
             contentStyle={{
@@ -81,9 +156,9 @@ export function IngresosPorDia({
             formatter={(v: number) => formatoMoneda(v)}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Line type="monotone" dataKey="anticipos" name="Anticipos" stroke={PALETA_INGRESOS[0]} strokeWidth={2} dot={{ r: 3 }} />
-          <Line type="monotone" dataKey="sitio" name="Pago en sitio" stroke={PALETA_INGRESOS[1]} strokeWidth={2} dot={{ r: 3 }} />
-          <Line type="monotone" dataKey="manual" name="Walk-ins" stroke={PALETA_INGRESOS[2]} strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="anticipos" name="Anticipos" stroke={PALETA_INGRESOS[0]} strokeWidth={2} dot={{ r: dotSize }} />
+          <Line type="monotone" dataKey="sitio" name="Pago en sitio" stroke={PALETA_INGRESOS[1]} strokeWidth={2} dot={{ r: dotSize }} />
+          <Line type="monotone" dataKey="manual" name="Walk-ins" stroke={PALETA_INGRESOS[2]} strokeWidth={2} dot={{ r: dotSize }} />
         </LineChart>
       </ResponsiveContainer>
     </div>

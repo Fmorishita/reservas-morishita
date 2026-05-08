@@ -21,14 +21,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { obtenerDatosPorRango } from "@/lib/finanzas/queries";
 import { calcularCorteSemanal } from "@/lib/finanzas/calculo";
 import {
   formatoMoneda,
-  rangoSemana,
   lunesDeLaSemana,
-  domingoDeLaSemana,
-  sumarDias,
+  labelPeriodo,
+  rangoDePeriodo,
+  navegarPeriodo,
+  cursoreActual,
+  type Periodo,
 } from "@/lib/finanzas/formato";
 import {
   exportarIngresosCSV,
@@ -44,25 +47,26 @@ import {
 import { HistorialIngresos } from "@/components/finanzas/HistorialIngresos";
 import type { Semana } from "@/lib/finanzas/types";
 
-export default function FinanzasDashboard() {
-  // Cursor de la semana visible (lunes de la semana)
-  const [cursor, setCursor] = useState<string>(() => lunesDeLaSemana());
-  const inicio = cursor;
-  const fin = domingoDeLaSemana(new Date(cursor + "T12:00:00"));
+const PERIODOS: { key: Periodo; label: string }[] = [
+  { key: "semana", label: "Semana" },
+  { key: "mes", label: "Mes" },
+  { key: "trimestre", label: "Trimestre" },
+  { key: "anio", label: "Año" },
+];
 
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
+export default function FinanzasDashboard() {
+  const [periodo, setPeriodo] = useState<Periodo>("semana");
+  const [cursor, setCursor] = useState<string>(() => lunesDeLaSemana());
+
+  const { inicio, fin } = rangoDePeriodo(cursor, periodo);
+  const esPeriodoActual = cursor === cursoreActual(periodo);
+
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["finanzas-rango", inicio, fin],
     queryFn: () => obtenerDatosPorRango(inicio, fin),
     staleTime: 15_000,
   });
 
-  // Para que `calcularCorteSemanal` funcione siempre, sintetizamos una semana
-  // si no existe en BD (semana pasada nunca abierta).
   const semanaParaCalculo: Semana = data?.semana ?? {
     id: "synthetic",
     fecha_inicio: inicio,
@@ -82,11 +86,14 @@ export default function FinanzasDashboard() {
       })
     : null;
 
-  const esSemanaActual = inicio === lunesDeLaSemana();
+  const irAnterior = () => setCursor((c) => navegarPeriodo(c, periodo, -1));
+  const irSiguiente = () => setCursor((c) => navegarPeriodo(c, periodo, 1));
+  const irActual = () => setCursor(cursoreActual(periodo));
 
-  const irSemanaAnterior = () => setCursor(sumarDias(inicio, -7));
-  const irSemanaSiguiente = () => setCursor(sumarDias(inicio, 7));
-  const irSemanaActual = () => setCursor(lunesDeLaSemana());
+  const handleCambioPeriodo = (p: Periodo) => {
+    setPeriodo(p);
+    setCursor(cursoreActual(p));
+  };
 
   if (error) {
     return (
@@ -100,33 +107,49 @@ export default function FinanzasDashboard() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      {/* Navegación de semana */}
+    <div className="space-y-5 max-w-3xl mx-auto">
+
+      {/* Selector de período */}
+      <div className="flex rounded-xl border border-border overflow-hidden">
+        {PERIODOS.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => handleCambioPeriodo(key)}
+            className={cn(
+              "flex-1 text-xs font-medium py-2.5 transition-colors",
+              periodo === key
+                ? "bg-gold text-black"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Navegación de período */}
       <div className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="icon" onClick={irSemanaAnterior} className="rounded-full" aria-label="Semana anterior">
+        <Button variant="ghost" size="icon" onClick={irAnterior} className="rounded-full shrink-0" aria-label="Período anterior">
           <ChevronLeft className="w-4 h-4" />
         </Button>
         <div className="text-center min-w-0 flex-1">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-            {esSemanaActual ? "Semana actual" : "Semana"}
-          </p>
           {isLoading ? (
-            <Skeleton className="h-6 w-40 mx-auto mt-1" />
+            <Skeleton className="h-6 w-44 mx-auto" />
           ) : (
-            <h2 className="text-lg md:text-xl font-semibold truncate">
-              {rangoSemana(inicio, fin)}
+            <h2 className="text-lg md:text-xl font-semibold capitalize truncate">
+              {labelPeriodo(cursor, periodo)}
             </h2>
           )}
-          {!esSemanaActual && (
+          {!esPeriodoActual && (
             <button
-              onClick={irSemanaActual}
+              onClick={irActual}
               className="text-[11px] text-gold hover:underline mt-0.5 inline-flex items-center gap-1"
             >
-              <CalendarDays className="w-3 h-3" /> Volver a la semana actual
+              <CalendarDays className="w-3 h-3" /> Ir al período actual
             </button>
           )}
         </div>
-        <Button variant="ghost" size="icon" onClick={irSemanaSiguiente} className="rounded-full" aria-label="Semana siguiente">
+        <Button variant="ghost" size="icon" onClick={irSiguiente} className="rounded-full shrink-0" aria-label="Período siguiente">
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
@@ -154,18 +177,21 @@ export default function FinanzasDashboard() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuItem
-              onClick={() => data && exportarReporteCompleto({
-                movimientos: data.movimientos,
-                gastos: data.gastos,
-                rango: { inicio, fin },
-                resumen: {
-                  ingresos_totales: corte?.ingresos_totales ?? 0,
-                  gastos_totales: corte?.gastos_totales ?? 0,
-                  utilidad_bruta: corte?.utilidad_bruta ?? 0,
-                  reembolso_fran: corte?.reembolso_fran ?? 0,
-                  reembolso_veronica: corte?.reembolso_veronica ?? 0,
-                },
-              })}
+              onClick={() =>
+                data &&
+                exportarReporteCompleto({
+                  movimientos: data.movimientos,
+                  gastos: data.gastos,
+                  rango: { inicio, fin },
+                  resumen: {
+                    ingresos_totales: corte?.ingresos_totales ?? 0,
+                    gastos_totales: corte?.gastos_totales ?? 0,
+                    utilidad_bruta: corte?.utilidad_bruta ?? 0,
+                    reembolso_fran: corte?.reembolso_fran ?? 0,
+                    reembolso_veronica: corte?.reembolso_veronica ?? 0,
+                  },
+                })
+              }
             >
               Reporte completo (CSV)
             </DropdownMenuItem>
@@ -255,18 +281,20 @@ export default function FinanzasDashboard() {
         </div>
       )}
 
-      {/* Alertas / cuadre */}
+      {/* Alertas */}
       {corte?.alertas && corte.alertas.length > 0 && (
         <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-sm space-y-1">
           {corte.alertas.map((a, i) => (
-            <p key={i} className="text-amber-700 dark:text-amber-400">⚠ {a}</p>
+            <p key={i} className="text-amber-700 dark:text-amber-400">
+              ⚠ {a}
+            </p>
           ))}
         </div>
       )}
 
       {!isLoading && data && data.movimientos.length === 0 && data.gastos.length === 0 && (
         <p className="text-center text-sm text-muted-foreground py-6">
-          Sin movimientos en este rango. Captura un gasto, registra un ingreso o confirma una reserva.
+          Sin movimientos en este período. Confirma una reserva o registra un gasto.
         </p>
       )}
     </div>
