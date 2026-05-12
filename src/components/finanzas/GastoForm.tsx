@@ -54,6 +54,7 @@ export function GastoForm({ semanaId }: GastoFormProps) {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -67,19 +68,33 @@ export function GastoForm({ semanaId }: GastoFormProps) {
 
   const handleOcr = (datos: DatosTicket) => {
     if (datos.monto && datos.monto > 0) {
-      setValue("monto", datos.monto);
+      setValue("monto", datos.monto, { shouldValidate: true });
     }
-    // Proveedor: usar nombre del negocio; si no se detectó, dejar vacío
     if (datos.proveedor) {
-      setValue("proveedor", datos.proveedor);
+      setValue("proveedor", datos.proveedor, { shouldValidate: true });
     }
-    // Descripción: si el OCR extrajo el ítem principal del ticket, pre-llenar
     if (datos.descripcion) {
-      setValue("descripcion", datos.descripcion);
+      setValue("descripcion", datos.descripcion, { shouldValidate: true });
     }
     if (datos.fecha) {
-      setValue("fecha", datos.fecha);
+      setValue("fecha", datos.fecha, { shouldValidate: true });
     }
+    if (datos.tipo) {
+      setValue("tipo", datos.tipo, { shouldValidate: true });
+    }
+  };
+
+  const onInvalid = (errs: typeof errors) => {
+    const faltantes: string[] = [];
+    if (errs.monto) faltantes.push("Monto");
+    if (errs.descripcion) faltantes.push("Descripción");
+    if (errs.fecha) faltantes.push("Fecha");
+    if (errs.tipo) faltantes.push("Tipo de gasto");
+    toast.error(
+      faltantes.length
+        ? `Falta llenar: ${faltantes.join(", ")}`
+        : "Revisa los campos del formulario",
+    );
   };
 
   const handleOrigenChange = (value: string) => {
@@ -108,7 +123,7 @@ export function GastoForm({ semanaId }: GastoFormProps) {
   const esPersonal = origenCombo === "personal_fran" || origenCombo === "personal_veronica";
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-5">
       {/* Monto */}
       <div className="space-y-1.5">
         <Label htmlFor="monto">Monto ($)</Label>
@@ -134,7 +149,10 @@ export function GastoForm({ semanaId }: GastoFormProps) {
       {/* Tipo de gasto */}
       <div className="space-y-1.5">
         <Label>Tipo de gasto</Label>
-        <Select defaultValue="insumos" onValueChange={(v) => setValue("tipo", v as FormData["tipo"])}>
+        <Select
+          value={watch("tipo")}
+          onValueChange={(v) => setValue("tipo", v as FormData["tipo"], { shouldValidate: true })}
+        >
           <SelectTrigger className="h-12">
             <SelectValue />
           </SelectTrigger>

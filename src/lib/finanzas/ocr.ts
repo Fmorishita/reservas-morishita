@@ -1,184 +1,137 @@
 /**
- * OCR de tickets usando Tesseract.js (corre 100% en el browser, sin API key).
- * Extrae monto total, proveedor, descripción y fecha del ticket.
+ * OCR de tickets — usa la Edge Function `extract-ticket` de Supabase,
+ * que internamente llama a Google Gemini Vision.
+ *
+ * Mucho más preciso que Tesseract.js para tickets fotografiados.
  */
 
-import { createWorker } from "tesseract.js";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface DatosTicket {
   monto: number | null;
   proveedor: string | null;
   descripcion: string | null;
   fecha: string | null;
+  tipo: "insumos" | "publicidad" | "operacion" | null;
 }
 
-/* ─── Patrones para el MONTO TOTAL ─── */
-const PATRONES_TOTAL = [
-  /total\s*a?\s*pagar[\s:$]*([0-9,]+\.?[0-9]{0,2})/i,
-  /total[\s:$]+([0-9,]+\.[0-9]{2})/i,
-  /importe\s*total[\s:$]*([0-9,]+\.?[0-9]{0,2})/i,
-  /gran\s*total[\s:$]*([0-9,]+\.?[0-9]{0,2})/i,
-  /\btotal\b[^\n]*\$?\s*([0-9,]+\.[0-9]{2})/i,
-  /\$\s*([0-9,]+\.[0-9]{2})\s*$/im,
-];
+const EMPTY: DatosTicket = {
+  monto: null,
+  proveedor: null,
+  descripcion: null,
+  fecha: null,
+  tipo: null,
+};
 
-/* ─── Palabras que indican que una línea NO es el nombre del negocio ─── */
-const RUIDO = [
-  /folio/i, /venta/i, /ticket/i, /fecha/i, /hora/i, /RFC/i,
-  /calle/i, /col\./i, /colonia/i, /tel[eé]fono/i, /tel\./i,
-  /subtotal/i, /total/i, /iva/i, /descuento/i, /cambio/i, /pago/i,
-  /efectivo/i, /tarjeta/i, /gracias/i, /bienvenid/i, /recibo/i,
-  /comprobante/i, /descripci[oó]n/i, /precio/i, /cantidad/i,
-  /cajero/i, /caja/i, /sucursal/i, /atendi/i, /vendedor/i,
-  /^\[/, /^CTD/i, /^#/, /^\d+[-–]\d+/, /www\./i, /\.com/i,
-];
-
-/* ─── Patrones de fecha ─── */
-const PATRONES_FECHA: Array<{ re: RegExp; fmt: (m: RegExpMatchArray) => string }> = [
-  {
-    re: /(\d{2})[\/\-](\d{2})[\/\-](\d{4})/,
-    fmt: (m) => `${m[3]}-${m[2]}-${m[1]}`,        // DD/MM/YYYY
-  },
-  {
-    re: /(\d{4})[\/\-](\d{2})[\/\-](\d{2})/,
-    fmt: (m) => `${m[1]}-${m[2]}-${m[3]}`,        // YYYY-MM-DD
-  },
-  {
-    re: /(\d{2})[\/\-](\d{2})[\/\-](\d{2})/,
-    fmt: (m) => `20${m[3]}-${m[2]}-${m[1]}`,      // DD/MM/YY
-  },
-];
-
-/* ─── Helpers ─── */
-
-function parsearMonto(raw: string): number | null {
-  const n = parseFloat(raw.replace(/,/g, "").trim());
-  return isNaN(n) || n <= 0 || n > 999_999 ? null : n;
-}
-
-function esRuido(linea: string): boolean {
-  return RUIDO.some((r) => r.test(linea));
+/**
+ * Convierte un File a data URL base64.
+ */
+function fileToDataUrl(file: File | Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 /**
- * Busca el nombre del negocio en el encabezado del ticket.
+ * Re-comprime una imagen muy grande a JPEG ≤ 1600px de lado mayor.
+ * Mejora velocidad de subida y precisión (Gemini funciona bien con ~1024-1600px).
+ */
+async function comprimirSiEsGrande(file: File | Blob): Promise<Blob> {
+  if (file.size < 1_500_000) return file; // < 1.5MB → no comprimir
+
+  const dataUrl = await fileToDataUrl(file);
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    i.src = dataUrl;
+  });
+
+  const MAX = 1600;
+  const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+  ctx.drawImage(img, 0, 0, w, h);
+
+  return new Promise<Blob>((resolve) => {
+    canvas.toBlob(
+      (blob) => resolve(blob ?? (file as Blob)),
+      "image/jpeg",
+      0.85,
+    );
+  });
+}
+
+/**
+ * Llama a la edge function `extract-ticket` con la imagen del ticket
+ * y devuelve los datos estructurados.
  *
- * Estrategia:
- * 1. Toma las primeras ~10 líneas (encabezado del ticket).
- * 2. Descarta líneas que sean ruido (folio, fecha, RFC, etc.).
- * 3. Prioriza líneas con solo letras/espacios (nombre limpio).
- * 4. Si no, toma la primera línea no-ruidosa restante.
- */
-function extraerProveedor(texto: string): string | null {
-  const lineas = texto
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-
-  // Solo miramos el encabezado (primeras 10 líneas)
-  const encabezado = lineas.slice(0, 10);
-
-  // Candidatos: líneas sin ruido, longitud razonable, que no empiecen con dígito
-  const candidatos = encabezado.filter(
-    (l) =>
-      l.length >= 3 &&
-      l.length <= 50 &&
-      !esRuido(l) &&
-      !/^\d/.test(l),
-  );
-
-  if (candidatos.length === 0) return null;
-
-  // Preferir líneas que sean solo texto (sin $, sin números solos)
-  const soloTexto = candidatos.find((l) => /^[A-Za-záéíóúÁÉÍÓÚüÜñÑ\s&\-'.]+$/.test(l));
-  if (soloTexto) return soloTexto;
-
-  // Preferir líneas que parezcan nombre de tienda (mayúsculas, > 4 chars)
-  const nombreTienda = candidatos.find((l) => /[A-ZÁÉÍÓÚ]{3,}/.test(l) && !esRuido(l));
-  if (nombreTienda) return nombreTienda;
-
-  return candidatos[0];
-}
-
-/**
- * Extrae la descripción del ticket: primer ítem comprable que aparezca.
- * Busca líneas que contengan un precio ($XX.XX) seguido de un texto producto.
- */
-function extraerDescripcion(texto: string): string | null {
-  const lineas = texto.split("\n").map((l) => l.trim()).filter(Boolean);
-
-  for (const linea of lineas) {
-    // Línea de ítem: texto + precio, ej "GALLETAS BISCOFF LOTUS 250 $128.95"
-    const matchItem = linea.match(/^([A-Z][A-Z\s0-9\-]+?)\s+\$?[0-9,]+\.[0-9]{2}/);
-    if (matchItem && matchItem[1].trim().length > 3 && !esRuido(matchItem[1])) {
-      // Capitalizar
-      return matchItem[1]
-        .trim()
-        .toLowerCase()
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-    }
-  }
-  return null;
-}
-
-function extraerFecha(texto: string): string | null {
-  for (const { re, fmt } of PATRONES_FECHA) {
-    const m = texto.match(re);
-    if (m) {
-      const fecha = fmt(m);
-      // Validar que sea una fecha coherente (año entre 2020-2030)
-      const anio = parseInt(fecha.slice(0, 4));
-      if (anio >= 2020 && anio <= 2030) return fecha;
-    }
-  }
-  return null;
-}
-
-/* ─── API pública ─── */
-
-/**
- * Corre OCR sobre una imagen de ticket y extrae los datos relevantes.
  * @param imagen  File o Blob con la foto del ticket
- * @param onProgress  Callback de progreso 0–100
+ * @param onProgress  Callback de progreso 0–100 (orientativo)
  */
 export async function leerTicket(
   imagen: File | Blob,
   onProgress?: (pct: number) => void,
 ): Promise<DatosTicket> {
-  const worker = await createWorker("spa", 1, {
-    logger: (m) => {
-      if (m.status === "recognizing text" && onProgress) {
-        onProgress(Math.round(m.progress * 100));
-      }
-    },
-  });
-
   try {
-    const {
-      data: { text },
-    } = await worker.recognize(imagen);
+    onProgress?.(10);
 
-    /* Monto */
-    let monto: number | null = null;
-    for (const pat of PATRONES_TOTAL) {
-      const match = text.match(pat);
-      if (match) {
-        monto = parsearMonto(match[1]);
-        if (monto) break;
-      }
+    const comprimida = await comprimirSiEsGrande(imagen);
+    onProgress?.(30);
+
+    const dataUrl = await fileToDataUrl(comprimida);
+    onProgress?.(50);
+
+    const { data, error } = await supabase.functions.invoke("extract-ticket", {
+      body: { image: dataUrl },
+    });
+
+    onProgress?.(95);
+
+    if (error) {
+      console.error("[ocr] edge function error:", error);
+      return EMPTY;
     }
 
-    /* Proveedor */
-    const proveedor = extraerProveedor(text);
+    if (!data || typeof data !== "object") {
+      return EMPTY;
+    }
 
-    /* Descripción (primer ítem del ticket) */
-    const descripcion = extraerDescripcion(text);
+    const r = data as Record<string, unknown>;
+    const result: DatosTicket = {
+      monto:
+        typeof r.monto === "number" && r.monto > 0 ? Number(r.monto.toFixed(2)) : null,
+      proveedor:
+        typeof r.proveedor === "string" && r.proveedor.trim()
+          ? r.proveedor.trim()
+          : null,
+      descripcion:
+        typeof r.descripcion === "string" && r.descripcion.trim()
+          ? r.descripcion.trim()
+          : null,
+      fecha:
+        typeof r.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.fecha)
+          ? r.fecha
+          : null,
+      tipo:
+        r.tipo === "insumos" || r.tipo === "publicidad" || r.tipo === "operacion"
+          ? r.tipo
+          : null,
+    };
 
-    /* Fecha */
-    const fecha = extraerFecha(text);
-
-    return { monto, proveedor, descripcion, fecha };
-  } finally {
-    await worker.terminate();
+    onProgress?.(100);
+    return result;
+  } catch (err) {
+    console.error("[ocr] error:", err);
+    return EMPTY;
   }
 }
