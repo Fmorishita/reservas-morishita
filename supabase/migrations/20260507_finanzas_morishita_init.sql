@@ -263,6 +263,14 @@ create policy "ingresos_insert" on ingresos_sitio
 create policy "gastos_insert" on gastos
   for insert with check (auth.uid() in (select user_id from socios where activo = true));
 
+create policy "gastos_update" on gastos
+  for update using (
+    auth.uid() in (select user_id from socios where activo = true)
+  )
+  with check (
+    auth.uid() in (select user_id from socios where activo = true)
+  );
+
 -- Escritura admin: solo fran puede cerrar semanas / cortes
 create policy "semanas_admin_write" on semanas
   for all using (
