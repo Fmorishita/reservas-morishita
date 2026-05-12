@@ -216,11 +216,6 @@ export default function ReservacionDesdeImagen() {
         errors.push(`La fecha ${format(parsedDate, "d 'de' MMMM", { locale: es })} cae en ${diaReal}. Solo abrimos sábados y domingos.`);
       }
 
-      // Check if it's in the past
-      if (isPast(startOfDay(parsedDate)) && startOfDay(parsedDate) < startOfDay(new Date())) {
-        errors.push("La fecha es en el pasado");
-      }
-
       // Check day mismatch
       if (data.dia_mencionado && data.dia_real) {
         const mencionado = data.dia_mencionado.toLowerCase();
@@ -407,11 +402,6 @@ export default function ReservacionDesdeImagen() {
     }
 
     // Validate not in the past
-    if (isPast(startOfDay(dateObj)) && startOfDay(dateObj) < startOfDay(new Date())) {
-      setValidationError("La fecha no puede ser en el pasado");
-      return;
-    }
-
     // Validate capacity
     const validation = canAddReservation(fecha, data.horario, data.numero_personas);
     if (!validation.allowed) {
