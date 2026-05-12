@@ -125,14 +125,33 @@ export async function actualizarGasto(
   id: string,
   updates: Partial<Omit<Gasto, "id" | "semana_id" | "creado_en">>
 ): Promise<Gasto> {
+  // Filtrar solo los campos que están permitidos actualizar
+  const camposActualizables: (keyof Omit<Gasto, "id" | "semana_id" | "creado_en">)[] = [
+    "fecha",
+    "monto",
+    "tipo",
+    "pagado_por",
+    "origen_dinero",
+    "descripcion",
+    "proveedor",
+    "foto_ticket_url",
+  ];
+
+  const datosLimpios = Object.fromEntries(
+    Object.entries(updates).filter(([key]) => camposActualizables.includes(key as any))
+  );
+
   const { data, error } = await db
     .from("gastos")
-    .update(updates)
+    .update(datosLimpios)
     .eq("id", id)
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error("[actualizarGasto] error:", error);
+    throw error;
+  }
   return data as Gasto;
 }
 
