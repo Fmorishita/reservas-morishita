@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { SubirTicket } from "./SubirTicket";
 import { crearGasto } from "@/lib/finanzas/queries";
+import type { DatosTicket } from "@/lib/finanzas/ocr";
 
 const schema = z.object({
   fecha: z.string().min(1, "Fecha requerida"),
@@ -63,6 +64,18 @@ export function GastoForm({ semanaId }: GastoFormProps) {
       origen_dinero: "caja_negocio",
     },
   });
+
+  const handleOcr = (datos: DatosTicket) => {
+    if (datos.monto && datos.monto > 0) {
+      setValue("monto", datos.monto);
+    }
+    if (datos.proveedor) {
+      setValue("proveedor", datos.proveedor);
+    }
+    if (datos.fecha) {
+      setValue("fecha", datos.fecha);
+    }
+  };
 
   const handleOrigenChange = (value: string) => {
     const combo = value as OrigenCombo;
@@ -164,7 +177,7 @@ export function GastoForm({ semanaId }: GastoFormProps) {
       </div>
 
       {/* Foto del ticket */}
-      <SubirTicket semanaId={semanaId} onSubido={setTicketUrl} />
+      <SubirTicket semanaId={semanaId} onSubido={setTicketUrl} onOcr={handleOcr} />
 
       <Button type="submit" className="w-full h-14 text-base" disabled={isSubmitting}>
         {isSubmitting ? "Guardando…" : "Registrar gasto"}
