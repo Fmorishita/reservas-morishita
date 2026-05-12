@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -45,6 +45,7 @@ import {
   GastosPorCategoria,
 } from "@/components/finanzas/Charts";
 import { HistorialIngresos } from "@/components/finanzas/HistorialIngresos";
+import { HistorialGastos } from "@/components/finanzas/HistorialGastos";
 import type { Semana } from "@/lib/finanzas/types";
 
 const PERIODOS: { key: Periodo; label: string }[] = [
@@ -54,9 +55,40 @@ const PERIODOS: { key: Periodo; label: string }[] = [
   { key: "anio", label: "Año" },
 ];
 
+const STORAGE_KEY = "morishita-finanzas-vista";
+
+function leerVistaPersistida(): { cursor: string; periodo: Periodo } | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed?.cursor === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(parsed.cursor) &&
+      ["semana", "mes", "trimestre", "anio"].includes(parsed?.periodo)
+    ) {
+      return { cursor: parsed.cursor, periodo: parsed.periodo as Periodo };
+    }
+  } catch {
+    /* noop */
+  }
+  return null;
+}
+
 export default function FinanzasDashboard() {
-  const [periodo, setPeriodo] = useState<Periodo>("semana");
-  const [cursor, setCursor] = useState<string>(() => lunesDeLaSemana());
+  const persistida = typeof window !== "undefined" ? leerVistaPersistida() : null;
+  const [periodo, setPeriodo] = useState<Periodo>(persistida?.periodo ?? "semana");
+  const [cursor, setCursor] = useState<string>(persistida?.cursor ?? lunesDeLaSemana());
+  const [gastosAbierto, setGastosAbierto] = useState(false);
+
+  // Persistir vista para que al volver de Nuevo gasto/Ingreso se mantenga la semana
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ cursor, periodo }));
+    } catch {
+      /* noop */
+    }
+  }, [cursor, periodo]);
 
   const { inicio, fin } = rangoDePeriodo(cursor, periodo);
   const esPeriodoActual = cursor === cursoreActual(periodo);
@@ -230,7 +262,15 @@ export default function FinanzasDashboard() {
             label="Gastos"
             value={formatoMoneda(corte.gastos_totales)}
             tone="red"
-            sub={`${data?.gastos.length ?? 0} gastos`}
+            sub={`${data?.gastos.length ?? 0} gastos · ver detalle`}
+            onClick={() => {
+              setGastosAbierto(true);
+              setTimeout(() => {
+                document
+                  .getElementById("historial-gastos")
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }, 50);
+            }}
           />
           <MetricCard
             icon={<Wallet className="w-4 h-4" />}
@@ -264,6 +304,15 @@ export default function FinanzasDashboard() {
       {/* Historial de ventas */}
       {!isLoading && data && (
         <HistorialIngresos movimientos={data.movimientos} />
+      )}
+
+      {/* Historial de gastos */}
+      {!isLoading && data && (
+        <HistorialGastos
+          gastos={data.gastos}
+          abierto={gastosAbierto}
+          onToggle={() => setGastosAbierto((s) => !s)}
+        />
       )}
 
       {/* Reembolsos y distribución */}
@@ -309,28 +358,48 @@ function MetricCard({
   value,
   sub,
   tone,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   sub?: string;
   tone: "emerald" | "red" | "neutral";
+  onClick?: () => void;
 }) {
   const colors = {
     emerald: "text-emerald-700 dark:text-emerald-400",
     red: "text-red-600 dark:text-red-400",
     neutral: "text-foreground",
   } as const;
-  return (
-    <div className="bg-card rounded-2xl p-4 border border-border shadow-sm">
+
+  const baseCls =
+    "bg-card rounded-2xl p-4 border border-border shadow-sm text-left w-full";
+  const interactiveCls = onClick
+    ? "hover:bg-secondary/40 hover:border-gold/40 active:scale-[0.98] transition cursor-pointer"
+    : "";
+
+  const content = (
+    <>
       <div className="flex items-center gap-1.5 text-muted-foreground">
         {icon}
         <p className="text-[10px] uppercase tracking-wide">{label}</p>
       </div>
-      <p className={`text-lg md:text-xl font-semibold mt-1 tabular-nums ${colors[tone]}`}>{value}</p>
+      <p className={`text-lg md:text-xl font-semibold mt-1 tabular-nums ${colors[tone]}`}>
+        {value}
+      </p>
       {sub && <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>}
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cn(baseCls, interactiveCls)}>
+        {content}
+      </button>
+    );
+  }
+  return <div className={baseCls}>{content}</div>;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
