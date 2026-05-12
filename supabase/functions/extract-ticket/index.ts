@@ -22,7 +22,10 @@ const VALID_IMAGE_PREFIXES = [
   "data:image/heic",
 ];
 
-const SYSTEM_PROMPT = `Eres un asistente que extrae información de tickets/recibos de compra para un restaurante en México.
+function buildSystemPrompt(today: string): string {
+  return `Eres un asistente que extrae información de tickets/recibos de compra para un restaurante en México.
+
+CONTEXTO IMPORTANTE: La fecha de hoy es ${today} (formato YYYY-MM-DD). Los tickets siempre corresponden a una compra reciente — usa esto para desambiguar formatos de fecha.
 
 Analiza la imagen del ticket y devuelve EXACTAMENTE un JSON con estos campos. Si algún dato no está visible o no estás seguro, devuelve null para ese campo.
 
@@ -30,7 +33,9 @@ Campos:
 - proveedor: nombre del negocio donde se hizo la compra (ej: "el Roble", "Walmart", "Costco"). Solo el nombre comercial, nunca el RFC ni el nombre de la persona. Capitalización normal (ej: "EL ROBLE" → "el Roble").
 - descripcion: descripción corta del gasto. Si hay UN artículo, usa su nombre (ej: "Galletas Biscoff Lotus 250"). Si hay varios, resume (ej: "Compra de insumos varios"). Máximo 80 caracteres. Capitalización normal.
 - monto: el TOTAL final pagado (no subtotal). Número decimal (ej: 128.95).
-- fecha: fecha del ticket en formato YYYY-MM-DD. Los tickets en México usan DD/MM/YYYY.
+- fecha: fecha del ticket en formato YYYY-MM-DD.
+  IMPORTANTE para desambiguar: los tickets en México pueden venir en formato DD/MM/YYYY o MM/DD/YYYY (depende del POS).
+  REGLA: elige la interpretación que dé una fecha PASADA y RECIENTE (entre 90 días atrás y hoy). Si ambas interpretaciones funcionan, elige la más cercana a hoy. Si solo una es plausible (pasada y dentro de 6 meses), usa esa. Una fecha en el futuro NUNCA es válida para un ticket.
 - tipo: clasifica el gasto en una de tres categorías:
   - "insumos" → alimentos, bebidas, ingredientes, abarrotes, frutas, verduras, carnes, productos de limpieza para cocina
   - "publicidad" → impresiones, redes sociales, anuncios, diseño, fotografía profesional
@@ -44,6 +49,7 @@ IMPORTANTE:
 
 Formato exacto:
 {"proveedor": "...", "descripcion": "...", "monto": 0.00, "fecha": "YYYY-MM-DD", "tipo": "insumos"}`;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -51,11 +57,17 @@ serve(async (req) => {
   }
 
   try {
-    const { image } = await req.json();
+    const { image, today } = await req.json();
 
     if (!image || typeof image !== "string") {
       return jsonResponse({ error: "Falta el campo 'image' (data URL base64)" }, 400);
     }
+
+    // Fecha de hoy (la pasa el cliente; fallback: now en UTC).
+    const todayStr =
+      typeof today === "string" && /^\d{4}-\d{2}-\d{2}$/.test(today)
+        ? today
+        : new Date().toISOString().slice(0, 10);
 
     if (!VALID_IMAGE_PREFIXES.some((p) => image.startsWith(p))) {
       return jsonResponse({ error: "Formato de imagen no válido. Usa JPEG, PNG, WebP o HEIC." }, 400);
@@ -82,7 +94,7 @@ serve(async (req) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           systemInstruction: {
-            parts: [{ text: SYSTEM_PROMPT }],
+            parts: [{ text: buildSystemPrompt(todayStr) }],
           },
           contents: [
             {
@@ -126,6 +138,25 @@ serve(async (req) => {
       );
     }
 
+    // Sanity check de fecha: si vino futura, intentar swap DD↔MM
+    function corregirFecha(fechaIso: string | null): string | null {
+      if (!fechaIso || !/^\d{4}-\d{2}-\d{2}$/.test(fechaIso)) return null;
+      const hoy = new Date(todayStr + "T12:00:00").getTime();
+      const candidata = new Date(fechaIso + "T12:00:00").getTime();
+      if (isNaN(candidata)) return null;
+      if (candidata <= hoy) return fechaIso; // ok, está en el pasado o hoy
+      // futura → swap DD↔MM
+      const [y, m, d] = fechaIso.split("-");
+      const swapped = `${y}-${d}-${m}`;
+      const swappedTs = new Date(swapped + "T12:00:00").getTime();
+      if (!isNaN(swappedTs) && swappedTs <= hoy) {
+        console.log(`[extract-ticket] fecha futura ${fechaIso} corregida a ${swapped}`);
+        return swapped;
+      }
+      console.log(`[extract-ticket] fecha futura ${fechaIso} sin corrección viable`);
+      return null;
+    }
+
     // Saneamiento
     const result = {
       proveedor:
@@ -138,10 +169,7 @@ serve(async (req) => {
           : null,
       monto:
         typeof parsed.monto === "number" && parsed.monto > 0 ? parsed.monto : null,
-      fecha:
-        typeof parsed.fecha === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.fecha)
-          ? parsed.fecha
-          : null,
+      fecha: corregirFecha(typeof parsed.fecha === "string" ? parsed.fecha : null),
       tipo:
         typeof parsed.tipo === "string" &&
         ["insumos", "publicidad", "operacion"].includes(parsed.tipo)

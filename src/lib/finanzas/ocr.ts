@@ -91,8 +91,9 @@ export async function leerTicket(
     const dataUrl = await fileToDataUrl(comprimida);
     onProgress?.(50);
 
+    const today = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase.functions.invoke("extract-ticket", {
-      body: { image: dataUrl },
+      body: { image: dataUrl, today },
     });
 
     onProgress?.(95);
