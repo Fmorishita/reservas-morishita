@@ -69,8 +69,13 @@ export function GastoForm({ semanaId }: GastoFormProps) {
     if (datos.monto && datos.monto > 0) {
       setValue("monto", datos.monto);
     }
+    // Proveedor: usar nombre del negocio; si no se detectó, dejar vacío
     if (datos.proveedor) {
       setValue("proveedor", datos.proveedor);
+    }
+    // Descripción: si el OCR extrajo el ítem principal del ticket, pre-llenar
+    if (datos.descripcion) {
+      setValue("descripcion", datos.descripcion);
     }
     if (datos.fecha) {
       setValue("fecha", datos.fecha);
