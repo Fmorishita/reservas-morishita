@@ -121,6 +121,21 @@ export async function crearGasto(input: NuevoGasto): Promise<Gasto> {
   return data as Gasto;
 }
 
+export async function actualizarGasto(
+  id: string,
+  updates: Partial<Omit<Gasto, "id" | "semana_id" | "creado_en">>
+): Promise<Gasto> {
+  const { data, error } = await db
+    .from("gastos")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Gasto;
+}
+
 export async function listarGastosDeSemana(semanaId: string): Promise<Gasto[]> {
   const { data } = await db
     .from("gastos")

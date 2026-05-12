@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,8 +15,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SubirTicket } from "./SubirTicket";
-import { crearGasto } from "@/lib/finanzas/queries";
+import { crearGasto, actualizarGasto } from "@/lib/finanzas/queries";
 import type { DatosTicket } from "@/lib/finanzas/ocr";
+import type { Gasto } from "@/lib/finanzas/types";
 
 const schema = z.object({
   fecha: z.string().min(1, "Fecha requerida"),
@@ -43,12 +44,14 @@ function mapOrigen(combo: OrigenCombo): { pagado_por: FormData["pagado_por"]; or
 
 interface GastoFormProps {
   semanaId: string;
+  gasto?: Gasto;
 }
 
-export function GastoForm({ semanaId }: GastoFormProps) {
+export function GastoForm({ semanaId, gasto }: GastoFormProps) {
   const navigate = useNavigate();
+  const esEdicion = !!gasto;
   const [origenCombo, setOrigenCombo] = useState<OrigenCombo>("empresa_caja");
-  const [ticketUrl, setTicketUrl] = useState<string>("");
+  const [ticketUrl, setTicketUrl] = useState<string>(gasto?.foto_ticket_url ?? "");
 
   const {
     register,
@@ -65,6 +68,30 @@ export function GastoForm({ semanaId }: GastoFormProps) {
       origen_dinero: "caja_negocio",
     },
   });
+
+  // Precargar valores cuando estamos en modo edición
+  useEffect(() => {
+    if (gasto) {
+      setValue("fecha", gasto.fecha);
+      setValue("monto", gasto.monto);
+      setValue("descripcion", gasto.descripcion);
+      setValue("tipo", gasto.tipo);
+      setValue("proveedor", gasto.proveedor || "");
+
+      // Determinar combo de origen basado en pagado_por + origen_dinero
+      let combo: OrigenCombo = "empresa_caja";
+      if (gasto.pagado_por === "empresa" && gasto.origen_dinero === "caja_negocio") {
+        combo = "empresa_caja";
+      } else if (gasto.pagado_por === "empresa" && gasto.origen_dinero === "fondo_acumulado") {
+        combo = "empresa_fondo";
+      } else if (gasto.pagado_por === "fran" && gasto.origen_dinero === "personal") {
+        combo = "personal_fran";
+      } else if (gasto.pagado_por === "veronica" && gasto.origen_dinero === "personal") {
+        combo = "personal_veronica";
+      }
+      setOrigenCombo(combo);
+    }
+  }, [gasto, setValue]);
 
   const handleOcr = (datos: DatosTicket) => {
     if (datos.monto && datos.monto > 0) {
@@ -107,12 +134,22 @@ export function GastoForm({ semanaId }: GastoFormProps) {
 
   const onSubmit = async (data: FormData) => {
     try {
-      await crearGasto({
-        semana_id: semanaId,
-        ...data,
-        foto_ticket_url: ticketUrl || null,
-      });
-      toast.success("Gasto registrado");
+      if (esEdicion && gasto) {
+        // Modo edición: actualizar gasto existente
+        await actualizarGasto(gasto.id, {
+          ...data,
+          foto_ticket_url: ticketUrl || null,
+        });
+        toast.success("Gasto actualizado");
+      } else {
+        // Modo creación: crear gasto nuevo
+        await crearGasto({
+          semana_id: semanaId,
+          ...data,
+          foto_ticket_url: ticketUrl || null,
+        });
+        toast.success("Gasto registrado");
+      }
       navigate("/finanzas");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error al guardar";
@@ -203,7 +240,7 @@ export function GastoForm({ semanaId }: GastoFormProps) {
       <SubirTicket semanaId={semanaId} onSubido={setTicketUrl} onOcr={handleOcr} />
 
       <Button type="submit" className="w-full h-14 text-base" disabled={isSubmitting}>
-        {isSubmitting ? "Guardando…" : "Registrar gasto"}
+        {isSubmitting ? "Guardando…" : esEdicion ? "Actualizar gasto" : "Registrar gasto"}
       </Button>
     </form>
   );

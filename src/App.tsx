@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import FinanzasDashboard from "./pages/finanzas/Dashboard";
 import NuevoGasto from "./pages/finanzas/NuevoGasto";
 import NuevoIngreso from "./pages/finanzas/NuevoIngreso";
+import EditarGasto from "./pages/finanzas/EditarGasto";
 
 const queryClient = new QueryClient();
 
@@ -76,6 +77,14 @@ const App = () => (
                 element={
                   <StaffRoute>
                     <NuevoGasto />
+                  </StaffRoute>
+                }
+              />
+              <Route
+                path="/finanzas/gastos/:id/editar"
+                element={
+                  <StaffRoute>
+                    <EditarGasto />
                   </StaffRoute>
                 }
               />

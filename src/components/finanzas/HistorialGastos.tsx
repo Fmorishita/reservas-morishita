@@ -1,4 +1,5 @@
-import { ChevronDown, Receipt, User, Image as ImageIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ChevronDown, Receipt, User, Image as ImageIcon, Edit2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatoMoneda, formatoFecha } from "@/lib/finanzas/formato";
 import type { Gasto } from "@/lib/finanzas/types";
@@ -22,6 +23,8 @@ interface HistorialGastosProps {
 }
 
 export function HistorialGastos({ gastos, abierto, onToggle }: HistorialGastosProps) {
+  const navigate = useNavigate();
+
   if (gastos.length === 0) {
     return (
       <div id="historial-gastos" className="bg-card rounded-2xl p-4 border border-border">
@@ -89,7 +92,8 @@ export function HistorialGastos({ gastos, abierto, onToggle }: HistorialGastosPr
                     return (
                       <li
                         key={g.id}
-                        className="px-4 py-3 flex items-start justify-between gap-3"
+                        onClick={() => navigate(`/finanzas/gastos/${g.id}/editar`)}
+                        className="px-4 py-3 flex items-start justify-between gap-3 cursor-pointer hover:bg-secondary/20 transition-colors"
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -114,6 +118,7 @@ export function HistorialGastos({ gastos, abierto, onToggle }: HistorialGastosPr
                                 href={g.foto_ticket_url}
                                 target="_blank"
                                 rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
                                 className="inline-flex items-center gap-1 text-[10px] text-gold hover:underline"
                               >
                                 <ImageIcon className="w-3 h-3" /> ticket
@@ -122,9 +127,22 @@ export function HistorialGastos({ gastos, abierto, onToggle }: HistorialGastosPr
                           </div>
                           <p className="text-sm mt-1 truncate">{g.descripcion}</p>
                         </div>
-                        <span className="text-sm font-semibold tabular-nums whitespace-nowrap text-red-600 dark:text-red-400">
-                          -{formatoMoneda(Number(g.monto))}
-                        </span>
+                        <div className="flex items-center gap-2 whitespace-nowrap">
+                          <span className="text-sm font-semibold tabular-nums text-red-600 dark:text-red-400">
+                            -{formatoMoneda(Number(g.monto))}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/finanzas/gastos/${g.id}/editar`);
+                            }}
+                            className="p-1 text-gold hover:bg-gold/10 rounded transition-colors"
+                            title="Editar gasto"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </li>
                     );
                   })}
