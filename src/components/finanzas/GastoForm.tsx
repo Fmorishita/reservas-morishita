@@ -63,7 +63,7 @@ export function GastoForm({ semanaId, gasto }: GastoFormProps) {
     resolver: zodResolver(schema),
     defaultValues: {
       fecha: new Date().toISOString().slice(0, 10),
-      tipo: "insumos",
+      tipo: "operacion",
       pagado_por: "empresa",
       origen_dinero: "caja_negocio",
     },
