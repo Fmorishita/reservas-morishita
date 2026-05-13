@@ -32,8 +32,9 @@ alter table reservations
   add column if not exists metodo_pago_final   text,
   add column if not exists fecha_pago_final    timestamp with time zone;
 
--- 3. Migrar datos existentes: 'Tarjeta' → 'Terminal'
+-- 3. Migrar datos existentes a los nuevos valores válidos
 update reservations set metodo_pago = 'Terminal' where metodo_pago = 'Tarjeta';
+update reservations set metodo_pago = 'Terminal' where metodo_pago = 'Stripe';
 
 -- 4. Recrear CHECK constraints con los nuevos valores válidos
 alter table reservations add constraint reservations_metodo_pago_check
