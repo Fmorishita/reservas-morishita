@@ -46,6 +46,7 @@ import {
 } from "@/components/finanzas/Charts";
 import { HistorialIngresos } from "@/components/finanzas/HistorialIngresos";
 import { HistorialGastos } from "@/components/finanzas/HistorialGastos";
+import { ReembolsosSection } from "@/components/finanzas/ReembolsosSection";
 import type { Semana } from "@/lib/finanzas/types";
 
 const PERIODOS: { key: Periodo; label: string }[] = [
@@ -332,24 +333,24 @@ export default function FinanzasDashboard() {
         />
       )}
 
-      {/* Reembolsos y distribución */}
-      {corte && (corte.reembolsos_totales > 0 || corte.utilidad_distribuible > 0) && (
-        <div className="grid md:grid-cols-2 gap-3">
-          {corte.reembolsos_totales > 0 && (
-            <Section title="Reembolsos pendientes">
-              <Row label="Fran" value={corte.reembolso_fran} />
-              <Row label="Verónica" value={corte.reembolso_veronica} />
-              <Row label="Total" value={corte.reembolsos_totales} bold />
-            </Section>
-          )}
-          {corte.utilidad_distribuible > 0 && (
-            <Section title="Repartición socios (50/50)">
-              <Row label="Fran" value={corte.fran_recibe} />
-              <Row label="Verónica" value={corte.veronica_recibe} />
-              <Row label="Total" value={corte.utilidad_distribuible} bold />
-            </Section>
-          )}
+      {/* Reembolsos con tracking de abonos */}
+      {corte && corte.reembolsos_totales > 0 && (
+        <div className="bg-card rounded-2xl border border-border p-4">
+          <ReembolsosSection
+            semanaId={data?.semana?.id ?? null}
+            reembolsoFran={corte.reembolso_fran}
+            reembolsoVeronica={corte.reembolso_veronica}
+          />
         </div>
+      )}
+
+      {/* Repartición socios */}
+      {corte && corte.utilidad_distribuible > 0 && (
+        <Section title="Repartición socios (50/50)">
+          <Row label="Fran" value={corte.fran_recibe} />
+          <Row label="Verónica" value={corte.veronica_recibe} />
+          <Row label="Total" value={corte.utilidad_distribuible} bold />
+        </Section>
       )}
 
       {/* Alertas */}

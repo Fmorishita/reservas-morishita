@@ -370,3 +370,52 @@ export async function subirTicket(
 
   return signed?.signedUrl ?? data.path;
 }
+
+/* ------------------------- ABONOS REEMBOLSO ------------------------- */
+
+export interface AbonoReembolso {
+  id: string;
+  semana_id: string;
+  beneficiario: 'fran' | 'veronica';
+  monto: number;
+  metodo: 'efectivo' | 'transferencia';
+  descripcion: string | null;
+  fecha: string;
+  created_at: string;
+}
+
+export interface NuevoAbonoReembolso {
+  semana_id: string;
+  beneficiario: 'fran' | 'veronica';
+  monto: number;
+  metodo: 'efectivo' | 'transferencia';
+  descripcion?: string | null;
+  fecha: string;
+}
+
+export async function listarAbonosDeSemana(semanaId: string): Promise<AbonoReembolso[]> {
+  const { data } = await db
+    .from("abonos_reembolso")
+    .select("*")
+    .eq("semana_id", semanaId)
+    .order("fecha", { ascending: true });
+  return (data ?? []) as AbonoReembolso[];
+}
+
+export async function crearAbono(abono: NuevoAbonoReembolso): Promise<AbonoReembolso> {
+  const { data, error } = await db
+    .from("abonos_reembolso")
+    .insert(abono)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as AbonoReembolso;
+}
+
+export async function eliminarAbono(id: string): Promise<void> {
+  const { error } = await db
+    .from("abonos_reembolso")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
