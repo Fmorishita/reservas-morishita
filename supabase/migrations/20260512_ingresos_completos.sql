@@ -19,17 +19,23 @@
 --      → Fix: renombrado a 'Terminal' y migración de datos existentes.
 -- ============================================================
 
--- 1. Agregar columnas para el pago final (restante 50%)
+-- 1. Eliminar constraint viejo PRIMERO (antes del UPDATE)
+--    El constraint anterior se llamaba 'valid_metodo_pago' y solo aceptaba
+--    'Efectivo', 'Tarjeta', 'Transferencia'. Si lo dejamos, el UPDATE de
+--    Tarjeta→Terminal falla.
+alter table reservations drop constraint if exists valid_metodo_pago;
+alter table reservations drop constraint if exists reservations_metodo_pago_check;
+
+-- 2. Agregar columnas para el pago final (restante 50%)
 alter table reservations
   add column if not exists monto_final_pagado  numeric,
   add column if not exists metodo_pago_final   text,
   add column if not exists fecha_pago_final    timestamp with time zone;
 
--- 2. Migrar datos existentes: 'Tarjeta' → 'Terminal'
+-- 3. Migrar datos existentes: 'Tarjeta' → 'Terminal'
 update reservations set metodo_pago = 'Terminal' where metodo_pago = 'Tarjeta';
 
--- 3. Actualizar CHECK constraints (drop si existen y recrear)
-alter table reservations drop constraint if exists reservations_metodo_pago_check;
+-- 4. Recrear CHECK constraints con los nuevos valores válidos
 alter table reservations add constraint reservations_metodo_pago_check
   check (metodo_pago is null or metodo_pago in ('Efectivo', 'Transferencia', 'Terminal'));
 
