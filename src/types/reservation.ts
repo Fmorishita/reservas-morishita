@@ -29,7 +29,13 @@ export interface Reservation {
   metodo_pago_final: PaymentMethod | null;
   monto_final_pagado: number | null;
   fecha_pago_final: string | null;
+  cobrado_por_final: CobradoPor | null;
+  tipo_tarjeta_final: TipoTarjeta | null;
+  propina_final: number | null;
 }
+
+export type CobradoPor = "fran" | "veronica";
+export type TipoTarjeta = "credito" | "debito";
 
 export interface TimeBlock {
   id: string;

@@ -5,7 +5,8 @@ import { es } from "date-fns/locale";
 import { Loader2, Trash2 } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
 import { PaymentSection } from "@/components/PaymentSection";
-import { FinalPaymentSection } from "@/components/FinalPaymentSection";
+import { FinalPaymentSection, FinalPaymentUpdates } from "@/components/FinalPaymentSection";
+import { CompletarReservaModal, CompletarReservaPayload } from "@/components/CompletarReservaModal";
 import { useReservations } from "@/hooks/useReservations";
 import { toast } from "@/hooks/use-toast";
 import { PaymentMethod } from "@/types/reservation";
@@ -32,6 +33,8 @@ export default function EditarReservacion() {
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
   const [isUpdatingFinalPayment, setIsUpdatingFinalPayment] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showCompletarModal, setShowCompletarModal] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState<any | null>(null);
 
   if (isLoading) {
     return (
@@ -62,6 +65,24 @@ export default function EditarReservacion() {
     const validation = canAddReservation(fecha, data.horario, data.numero_personas, reservation.id);
     if (!validation.allowed) {
       setValidationError(validation.reason);
+      return;
+    }
+
+    // Si el usuario está marcando la reserva como Completada por primera vez y
+    // todavía no ha registrado el pago final → abrir modal en lugar de guardar.
+    const wasCompletada = reservation.estado === "Completada";
+    const nowCompletada = data.estado === "Completada";
+    const hasFinalPayment = !!reservation.metodo_pago_final;
+    if (nowCompletada && !wasCompletada && !hasFinalPayment) {
+      setPendingFormData({
+        ...data,
+        fecha,
+        whatsapp: data.whatsapp || null,
+        motivo_visita: data.motivo_visita || null,
+        alergias: data.alergias || null,
+        notas_internas: data.notas_internas || null,
+      });
+      setShowCompletarModal(true);
       return;
     }
 
@@ -121,11 +142,7 @@ export default function EditarReservacion() {
     }
   };
 
-  const handleUpdateFinalPayment = async (updates: {
-    metodo_pago_final: PaymentMethod | null;
-    monto_final_pagado: number | null;
-    fecha_pago_final: string | null;
-  }) => {
+  const handleUpdateFinalPayment = async (updates: FinalPaymentUpdates) => {
     setIsUpdatingFinalPayment(true);
     try {
       await updateReservation(reservation.id, updates);
@@ -143,6 +160,32 @@ export default function EditarReservacion() {
       });
     } finally {
       setIsUpdatingFinalPayment(false);
+    }
+  };
+
+  const handleConfirmCompletar = async (payload: CompletarReservaPayload) => {
+    if (!pendingFormData) return;
+    setIsSubmitting(true);
+    try {
+      await updateReservation(reservation.id, {
+        ...pendingFormData,
+        ...payload,
+      });
+      toast({
+        title: "Reservación completada",
+        description: `Se registró el pago final con ${payload.metodo_pago_final}`,
+      });
+      setShowCompletarModal(false);
+      setPendingFormData(null);
+      navigate("/");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo completar la reservación",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -231,6 +274,16 @@ export default function EditarReservacion() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CompletarReservaModal
+        open={showCompletarModal}
+        onOpenChange={(o) => {
+          setShowCompletarModal(o);
+          if (!o) setPendingFormData(null);
+        }}
+        reservation={reservation}
+        onConfirm={handleConfirmCompletar}
+      />
     </div>
   );
 }

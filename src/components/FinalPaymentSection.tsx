@@ -2,20 +2,35 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CreditCard, Banknote, Building2, Check, Loader2 } from "lucide-react";
-import { PaymentMethod, PAYMENT_METHODS, Reservation } from "@/types/reservation";
+import {
+  PaymentMethod,
+  Reservation,
+  CobradoPor,
+  TipoTarjeta,
+} from "@/types/reservation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import {
+  FinalPaymentFields,
+  FinalPaymentFieldsValue,
+  computePropinaMonto,
+  computeTotal,
+  isValid,
+} from "@/components/FinalPaymentFields";
+
+export interface FinalPaymentUpdates {
+  metodo_pago_final: PaymentMethod | null;
+  monto_final_pagado: number | null;
+  fecha_pago_final: string | null;
+  cobrado_por_final: CobradoPor | null;
+  tipo_tarjeta_final: TipoTarjeta | null;
+  propina_final: number | null;
+}
 
 interface FinalPaymentSectionProps {
   reservation: Reservation;
-  onUpdateFinalPayment: (updates: {
-    metodo_pago_final: PaymentMethod | null;
-    monto_final_pagado: number | null;
-    fecha_pago_final: string | null;
-  }) => void;
+  onUpdateFinalPayment: (updates: FinalPaymentUpdates) => void;
   isUpdating?: boolean;
 }
 
@@ -25,31 +40,51 @@ const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
   Transferencia: <Building2 className="w-4 h-4" />,
 };
 
+function inferPropinaState(reservation: Reservation, base: number): FinalPaymentFieldsValue {
+  const propina = reservation.propina_final ?? 0;
+  const pct = base > 0 ? Math.round((propina / base) * 100) : 0;
+  // Si el % calculado es entero limpio, mostrar en modo %; si no, en monto
+  const isCleanPct = base > 0 && Math.abs(base * (pct / 100) - propina) < 0.01;
+  return {
+    metodo: (reservation.metodo_pago_final as PaymentMethod | null) ?? null,
+    cobradoPor: reservation.cobrado_por_final ?? null,
+    tipoTarjeta: reservation.tipo_tarjeta_final ?? null,
+    propinaMode: isCleanPct ? "porcentaje" : "monto",
+    propinaInput:
+      propina === 0
+        ? ""
+        : isCleanPct
+        ? pct.toString()
+        : propina.toString(),
+  };
+}
+
 export function FinalPaymentSection({
   reservation,
   onUpdateFinalPayment,
   isUpdating,
 }: FinalPaymentSectionProps) {
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(
-    reservation.metodo_pago_final as PaymentMethod | null
-  );
-  const [amount, setAmount] = useState<string>(
-    reservation.monto_final_pagado?.toString() || ""
-  );
+  const expectedFinal = (reservation.numero_personas || 1) * 925;
   const [isEditing, setIsEditing] = useState(!reservation.metodo_pago_final);
+  const [value, setValue] = useState<FinalPaymentFieldsValue>(() =>
+    inferPropinaState(reservation, expectedFinal)
+  );
 
   const isPaid = !!reservation.metodo_pago_final;
-  const expectedFinal = (reservation.numero_personas || 1) * 925;
-
-  const hasValidAmount = amount && parseFloat(amount) > 0;
-  const canSave = selectedMethod && hasValidAmount;
+  const canSave = isValid(value);
 
   const handleSave = () => {
-    if (!selectedMethod) return;
+    if (!value.metodo) return;
+    const propina = computePropinaMonto(value, expectedFinal);
+    const total = computeTotal(value, expectedFinal);
     onUpdateFinalPayment({
-      metodo_pago_final: selectedMethod,
-      monto_final_pagado: amount ? parseFloat(amount) : null,
-      fecha_pago_final: new Date().toISOString(),
+      metodo_pago_final: value.metodo,
+      monto_final_pagado: total,
+      fecha_pago_final:
+        reservation.fecha_pago_final || new Date().toISOString(),
+      cobrado_por_final: value.metodo === "Efectivo" ? value.cobradoPor : null,
+      tipo_tarjeta_final: value.metodo === "Terminal" ? value.tipoTarjeta : null,
+      propina_final: propina,
     });
     setIsEditing(false);
   };
@@ -59,14 +94,18 @@ export function FinalPaymentSection({
       metodo_pago_final: null,
       monto_final_pagado: null,
       fecha_pago_final: null,
+      cobrado_por_final: null,
+      tipo_tarjeta_final: null,
+      propina_final: null,
     });
-    setSelectedMethod(null);
-    setAmount("");
+    setValue({
+      metodo: null,
+      cobradoPor: null,
+      tipoTarjeta: null,
+      propinaMode: "porcentaje",
+      propinaInput: "",
+    });
     setIsEditing(true);
-  };
-
-  const handleUseExpected = () => {
-    setAmount(expectedFinal.toString());
   };
 
   if (isPaid && !isEditing) {
@@ -77,7 +116,14 @@ export function FinalPaymentSection({
             <Check className="w-5 h-5 text-success" />
             <span className="font-medium text-success">Pago final completado (50%)</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setValue(inferPropinaState(reservation, expectedFinal));
+              setIsEditing(true);
+            }}
+          >
             Editar
           </Button>
         </div>
@@ -85,15 +131,37 @@ export function FinalPaymentSection({
           <div className="flex items-center gap-2">
             {paymentIcons[reservation.metodo_pago_final as PaymentMethod]}
             <span>{reservation.metodo_pago_final}</span>
+            {reservation.metodo_pago_final === "Terminal" && reservation.tipo_tarjeta_final && (
+              <span className="text-xs text-muted-foreground">
+                · {reservation.tipo_tarjeta_final === "credito" ? "Crédito" : "Débito"}
+              </span>
+            )}
           </div>
-          {reservation.monto_final_pagado && (
+          {reservation.metodo_pago_final === "Efectivo" && reservation.cobrado_por_final && (
+            <p className="text-muted-foreground">
+              Cobrado por: {reservation.cobrado_por_final === "veronica" ? "Verónica" : "Fran"}
+            </p>
+          )}
+          {reservation.monto_final_pagado != null && (
             <p className="text-muted-foreground">
               Monto: ${reservation.monto_final_pagado.toLocaleString("es-MX")}
             </p>
           )}
+          {reservation.propina_final != null && reservation.propina_final > 0 && (
+            <p className="text-muted-foreground">
+              Propina: $
+              {reservation.propina_final.toLocaleString("es-MX", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </p>
+          )}
           {reservation.fecha_pago_final && (
             <p className="text-muted-foreground">
-              Fecha: {format(new Date(reservation.fecha_pago_final), "d MMM yyyy, HH:mm", { locale: es })}
+              Fecha:{" "}
+              {format(new Date(reservation.fecha_pago_final), "d MMM yyyy, HH:mm", {
+                locale: es,
+              })}
             </p>
           )}
         </div>
@@ -120,60 +188,17 @@ export function FinalPaymentSection({
         )}
       </div>
 
-      {/* Payment method selector */}
-      <div className="grid grid-cols-3 gap-2">
-        {PAYMENT_METHODS.map((method) => (
-          <Button
-            key={method}
-            type="button"
-            variant={selectedMethod === method ? "default" : "outline"}
-            className={cn(
-              "flex flex-col items-center gap-1 h-auto py-3",
-              selectedMethod === method && "bg-primary text-primary-foreground"
-            )}
-            onClick={() => setSelectedMethod(method)}
-          >
-            {paymentIcons[method]}
-            <span className="text-xs">{method}</span>
-          </Button>
-        ))}
-      </div>
+      <FinalPaymentFields base={expectedFinal} value={value} onChange={setValue} />
 
-      {/* Amount input */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label>Monto (requerido)</Label>
-          {amount !== expectedFinal.toString() && (
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              onClick={handleUseExpected}
-              className="h-auto py-0 px-2 text-xs"
-            >
-              Usar ${expectedFinal.toLocaleString("es-MX")}
-            </Button>
-          )}
-        </div>
-        <Input
-          type="number"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder={expectedFinal.toString()}
-          className={cn(
-            "text-right",
-            !hasValidAmount && selectedMethod && "border-warning"
-          )}
-        />
-      </div>
-
-      {/* Actions */}
       <div className="flex gap-2">
         {isPaid && (
           <Button
             type="button"
             variant="outline"
-            onClick={() => setIsEditing(false)}
+            onClick={() => {
+              setValue(inferPropinaState(reservation, expectedFinal));
+              setIsEditing(false);
+            }}
             className="flex-1"
           >
             Cancelar
