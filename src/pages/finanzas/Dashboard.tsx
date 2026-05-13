@@ -325,15 +325,20 @@ export default function FinanzasDashboard() {
       {/* Reembolsos y distribución */}
       {corte && (corte.reembolsos_totales > 0 || corte.utilidad_distribuible > 0) && (
         <div className="grid md:grid-cols-2 gap-3">
-          <Section title="Reembolsos pendientes">
-            <Row label="Fran" value={corte.reembolso_fran} />
-            <Row label="Verónica" value={corte.reembolso_veronica} />
-            <Row label="Total" value={corte.reembolsos_totales} bold />
-          </Section>
-          <Section title="Distribución estimada">
-            <Row label="Fran recibe" value={corte.fran_recibe} />
-            <Row label="Verónica recibe" value={corte.veronica_recibe} />
-          </Section>
+          {corte.reembolsos_totales > 0 && (
+            <Section title="Reembolsos pendientes">
+              <Row label="Fran" value={corte.reembolso_fran} />
+              <Row label="Verónica" value={corte.reembolso_veronica} />
+              <Row label="Total" value={corte.reembolsos_totales} bold />
+            </Section>
+          )}
+          {corte.utilidad_distribuible > 0 && (
+            <Section title="Repartición socios (50/50)">
+              <Row label="Fran" value={corte.fran_recibe} />
+              <Row label="Verónica" value={corte.veronica_recibe} />
+              <Row label="Total" value={corte.utilidad_distribuible} bold />
+            </Section>
+          )}
         </div>
       )}
 

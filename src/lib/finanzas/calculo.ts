@@ -96,60 +96,48 @@ export function calcularCorteSemanal(datos: DatosSemanaParaCalculo): ResultadoCo
   // 3. Utilidad bruta
   const utilidad_bruta = round2(ingresos_totales - gastos_totales);
 
-  // 4. Reembolsos
+  // 4. Reembolsos — siempre el monto completo pagado con dinero personal.
+  //    Son un flujo independiente de la distribución de utilidad.
   const reembolsos = calcularReembolsos(gastos);
-  const reembolsos_totales = round2(reembolsos.fran + reembolsos.veronica);
+  const reembolso_fran = reembolsos.fran;
+  const reembolso_veronica = reembolsos.veronica;
+  const reembolsos_totales = round2(reembolso_fran + reembolso_veronica);
 
-  // 5-7. Aplicar reembolsos primero, luego distribuir
-  let reembolso_fran = reembolsos.fran;
-  let reembolso_veronica = reembolsos.veronica;
-  let utilidad_distribuible = round2(utilidad_bruta - reembolsos_totales);
+  // 5. Utilidad distribuible (independiente de reembolsos)
+  let utilidad_distribuible = utilidad_bruta;
   let arrastre_siguiente = 0;
-  let fran_utilidad = 0;
-  let vero_utilidad = 0;
 
-  if (utilidad_distribuible < 0) {
-    // No alcanzó para reembolsar todo. Se prorratea lo disponible y el resto se arrastra.
-    if (utilidad_bruta > 0 && reembolsos_totales > 0) {
-      const proporcion = utilidad_bruta / reembolsos_totales;
-      reembolso_fran = round2(reembolsos.fran * proporcion);
-      reembolso_veronica = round2(reembolsos.veronica * proporcion);
-    } else if (utilidad_bruta <= 0) {
-      // Hubo pérdida. No hay nada para reembolsar esta semana.
-      reembolso_fran = 0;
-      reembolso_veronica = 0;
-    }
-    arrastre_siguiente = round2(utilidad_distribuible); // negativo
+  if (utilidad_bruta < 0) {
+    // Pérdida real — arrastra la deuda a la siguiente semana
+    arrastre_siguiente = utilidad_bruta;
     utilidad_distribuible = 0;
     alertas.push(
-      `Utilidad insuficiente para cubrir reembolsos. Se arrastra $${Math.abs(
-        arrastre_siguiente,
-      ).toFixed(2)} a la siguiente semana.`,
+      `Pérdida de $${Math.abs(utilidad_bruta).toFixed(2)} se arrastra a la siguiente semana.`,
     );
-  } else {
-    // 8. Aplicar arrastre anterior si existe (es negativo si hubo pérdida previa)
-    if (semana.arrastre_anterior < 0) {
-      const deuda = Math.abs(semana.arrastre_anterior);
-      if (utilidad_distribuible >= deuda) {
-        utilidad_distribuible = round2(utilidad_distribuible - deuda);
-        alertas.push(`Se cubrió arrastre anterior de $${deuda.toFixed(2)}.`);
-      } else {
-        arrastre_siguiente = round2(utilidad_distribuible - deuda); // sigue negativo
-        utilidad_distribuible = 0;
-        alertas.push(
-          `Utilidad insuficiente para cubrir arrastre anterior. Nueva deuda: $${Math.abs(
-            arrastre_siguiente,
-          ).toFixed(2)}.`,
-        );
-      }
+  } else if (semana.arrastre_anterior < 0) {
+    // Existe deuda de semanas anteriores — se salda primero con la utilidad
+    const deuda = Math.abs(semana.arrastre_anterior);
+    if (utilidad_distribuible >= deuda) {
+      utilidad_distribuible = round2(utilidad_distribuible - deuda);
+      alertas.push(`Se cubrió arrastre anterior de $${deuda.toFixed(2)}.`);
+    } else {
+      arrastre_siguiente = round2(utilidad_distribuible - deuda); // sigue negativo
+      utilidad_distribuible = 0;
+      alertas.push(
+        `Utilidad insuficiente para cubrir arrastre anterior. Nueva deuda: $${Math.abs(
+          arrastre_siguiente,
+        ).toFixed(2)}.`,
+      );
     }
-    fran_utilidad = round2(utilidad_distribuible / 2);
-    vero_utilidad = round2(utilidad_distribuible - fran_utilidad); // evita pérdida de centavo
   }
 
-  // 9. Distribución total que recibe cada socio
-  const fran_recibe = round2(reembolso_fran + fran_utilidad);
-  const veronica_recibe = round2(reembolso_veronica + vero_utilidad);
+  // 6. Distribución 50/50 de la utilidad
+  const fran_utilidad = round2(utilidad_distribuible / 2);
+  const vero_utilidad = round2(utilidad_distribuible - fran_utilidad);
+
+  // fran_recibe / veronica_recibe = solo la parte de utilidad (reembolsos son flujo aparte)
+  const fran_recibe = fran_utilidad;
+  const veronica_recibe = vero_utilidad;
 
   // Dispersiones detalladas
   const dispersiones: ResultadoCorte['dispersiones'] = [];
