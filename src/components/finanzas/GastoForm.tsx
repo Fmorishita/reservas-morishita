@@ -196,7 +196,7 @@ export function GastoForm({ semanaId, gasto }: GastoFormProps) {
           <SelectContent>
             <SelectItem value="insumos">Insumos / Ingredientes</SelectItem>
             <SelectItem value="publicidad">Publicidad / Marketing</SelectItem>
-            <SelectItem value="operacion">Operación (otros)</SelectItem>
+            <SelectItem value="operacion">Operación</SelectItem>
           </SelectContent>
         </Select>
       </div>
