@@ -29,7 +29,7 @@ type TimeFilter = "all" | "future" | "past";
 
 const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
   Efectivo: <Banknote className="w-3 h-3" />,
-  Tarjeta: <CreditCard className="w-3 h-3" />,
+  Terminal: <CreditCard className="w-3 h-3" />,
   Transferencia: <Building2 className="w-3 h-3" />,
 };
 

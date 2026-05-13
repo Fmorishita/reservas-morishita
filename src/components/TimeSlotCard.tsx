@@ -24,7 +24,7 @@ interface TimeSlotCardProps {
 
 const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
   Efectivo: <Banknote className="w-3.5 h-3.5" />,
-  Tarjeta: <CreditCard className="w-3.5 h-3.5" />,
+  Terminal: <CreditCard className="w-3.5 h-3.5" />,
   Transferencia: <Building2 className="w-3.5 h-3.5" />,
 };
 

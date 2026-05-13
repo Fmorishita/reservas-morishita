@@ -1,7 +1,7 @@
 export type TimeSlot = "COMIDA" | "TARDE" | "CENA" | "NOCHE";
 export type MenuType = "Omakase 14 tiempos";
 export type ReservationStatus = "Pendiente" | "Confirmada" | "Cancelada" | "Completada";
-export type PaymentMethod = "Efectivo" | "Tarjeta" | "Transferencia";
+export type PaymentMethod = "Efectivo" | "Transferencia" | "Terminal";
 
 export interface Reservation {
   id: string;
@@ -19,12 +19,16 @@ export interface Reservation {
   reminder_2h_shown: boolean;
   created_at: string;
   updated_at: string;
-  // Payment fields
+  // Payment fields — Anticipo (50%)
   metodo_pago: PaymentMethod | null;
   monto_pagado: number | null;
   fecha_pago: string | null;
   notas_pago: string | null;
   ticket_imagen_url: string | null;
+  // Payment fields — Pago final (50%)
+  metodo_pago_final: PaymentMethod | null;
+  monto_final_pagado: number | null;
+  fecha_pago_final: string | null;
 }
 
 export interface TimeBlock {
@@ -89,8 +93,8 @@ export const RESERVATION_STATUSES: ReservationStatus[] = [
 
 export const PAYMENT_METHODS: PaymentMethod[] = [
   "Efectivo",
-  "Tarjeta",
   "Transferencia",
+  "Terminal",
 ];
 
 export const MAX_CAPACITY = 4;

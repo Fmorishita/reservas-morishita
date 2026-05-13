@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
 import { PaymentSection } from "@/components/PaymentSection";
+import { FinalPaymentSection } from "@/components/FinalPaymentSection";
 import { useReservations } from "@/hooks/useReservations";
 import { toast } from "@/hooks/use-toast";
 import { PaymentMethod } from "@/types/reservation";
@@ -16,6 +17,7 @@ export default function EditarReservacion() {
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+  const [isUpdatingFinalPayment, setIsUpdatingFinalPayment] = useState(false);
 
   if (isLoading) {
     return (
@@ -89,19 +91,44 @@ export default function EditarReservacion() {
     try {
       await updateReservation(reservation.id, updates);
       toast({
-        title: updates.metodo_pago ? "Pago registrado" : "Pago eliminado",
-        description: updates.metodo_pago 
-          ? `Se registró el pago con ${updates.metodo_pago}`
-          : "Se eliminó el registro de pago",
+        title: updates.metodo_pago ? "Anticipo registrado" : "Anticipo eliminado",
+        description: updates.metodo_pago
+          ? `Se registró el anticipo con ${updates.metodo_pago}`
+          : "Se eliminó el registro del anticipo",
       });
     } catch (error) {
       toast({
         title: "Error",
-        description: "No se pudo actualizar el pago",
+        description: "No se pudo actualizar el anticipo",
         variant: "destructive",
       });
     } finally {
       setIsUpdatingPayment(false);
+    }
+  };
+
+  const handleUpdateFinalPayment = async (updates: {
+    metodo_pago_final: PaymentMethod | null;
+    monto_final_pagado: number | null;
+    fecha_pago_final: string | null;
+  }) => {
+    setIsUpdatingFinalPayment(true);
+    try {
+      await updateReservation(reservation.id, updates);
+      toast({
+        title: updates.metodo_pago_final ? "Pago final registrado" : "Pago final eliminado",
+        description: updates.metodo_pago_final
+          ? `Se registró el pago final con ${updates.metodo_pago_final}`
+          : "Se eliminó el registro del pago final",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el pago final",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingFinalPayment(false);
     }
   };
 
@@ -113,6 +140,12 @@ export default function EditarReservacion() {
         reservation={reservation}
         onUpdatePayment={handleUpdatePayment}
         isUpdating={isUpdatingPayment}
+      />
+
+      <FinalPaymentSection
+        reservation={reservation}
+        onUpdateFinalPayment={handleUpdateFinalPayment}
+        isUpdating={isUpdatingFinalPayment}
       />
 
       <Separator />

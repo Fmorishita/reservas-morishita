@@ -26,7 +26,7 @@ interface PaymentSectionProps {
 
 const paymentIcons: Record<PaymentMethod, React.ReactNode> = {
   Efectivo: <Banknote className="w-4 h-4" />,
-  Tarjeta: <CreditCard className="w-4 h-4" />,
+  Terminal: <CreditCard className="w-4 h-4" />,
   Transferencia: <Building2 className="w-4 h-4" />,
 };
 
@@ -232,13 +232,15 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
     }
   };
 
+  const expectedAnticipo = (reservation.numero_personas || 1) * 925;
+
   if (isPaid && !isEditing) {
     return (
       <div className="space-y-3 p-4 rounded-lg bg-success/10 border border-success/30">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Check className="w-5 h-5 text-success" />
-            <span className="font-medium text-success">Pagado</span>
+            <span className="font-medium text-success">Anticipo pagado (50%)</span>
           </div>
           <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
             Editar
@@ -296,7 +298,12 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
   return (
     <div className="space-y-4 p-4 rounded-lg bg-muted/50 border border-border">
       <div className="flex items-center justify-between">
-        <Label className="text-base font-medium">Registrar pago</Label>
+        <div>
+          <Label className="text-base font-medium">Anticipo (50%)</Label>
+          <p className="text-xs text-muted-foreground">
+            Esperado: ${expectedAnticipo.toLocaleString("es-MX")}
+          </p>
+        </div>
         {!isPaid && (
           <Badge variant="outline" className="text-warning border-warning">
             Sin pagar
@@ -340,8 +347,8 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
         ))}
       </div>
 
-      {/* Ticket image upload for Tarjeta */}
-      {selectedMethod === "Tarjeta" && (
+      {/* Ticket image upload for Terminal (Cohete) */}
+      {selectedMethod === "Terminal" && (
         <div className="space-y-3 p-3 rounded-lg bg-background border border-border">
           <Label className="text-sm">Foto del ticket (opcional)</Label>
           
@@ -500,7 +507,7 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
               Guardando...
             </>
           ) : (
-            "Marcar como pagado"
+            "Guardar anticipo"
           )}
         </Button>
       </div>
