@@ -110,6 +110,12 @@ export default function FinanzasDashboard() {
     cerrada_en: null,
   };
 
+  // Intentar obtener semana_id: primero del row de semanas, luego del primer gasto
+  const semanaId: string | null =
+    data?.semana?.id && data.semana.id !== "synthetic"
+      ? data.semana.id
+      : data?.gastos?.[0]?.semana_id ?? null;
+
   const corte = data
     ? calcularCorteSemanal({
         semana: semanaParaCalculo,
@@ -337,7 +343,7 @@ export default function FinanzasDashboard() {
       {corte && corte.reembolsos_totales > 0 && (
         <div className="bg-card rounded-2xl border border-border p-4">
           <ReembolsosSection
-            semanaId={data?.semana?.id ?? null}
+            semanaId={semanaId}
             reembolsoFran={corte.reembolso_fran}
             reembolsoVeronica={corte.reembolso_veronica}
           />

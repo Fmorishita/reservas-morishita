@@ -332,47 +332,98 @@ export function ReembolsosSection({
   const handleCreado = (abono: AbonoReembolso) => setAbonos((prev) => [...prev, abono]);
   const handleEliminado = (id: string) => setAbonos((prev) => prev.filter((a) => a.id !== id));
 
+  const [expandido, setExpandido] = useState(false);
+
   if (reembolsoFran === 0 && reembolsoVeronica === 0) return null;
-  if (!semanaId) {
-    // Sin semana creada aún — solo mostrar totales
-    return (
-      <div className="space-y-2">
-        <h3 className="text-sm font-semibold">Reembolsos pendientes</h3>
-        <p className="text-xs text-muted-foreground">
-          No hay semana activa para registrar abonos.
-        </p>
-      </div>
-    );
-  }
+
+  const totalAbonado = abonos.reduce((s, a) => s + Number(a.monto), 0);
+  const totalReembolsos = reembolsoFran + reembolsoVeronica;
+  const totalPendiente = Math.max(0, totalReembolsos - totalAbonado);
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold">Reembolsos pendientes</h3>
-      {cargando ? (
-        <p className="text-xs text-muted-foreground py-2">Cargando...</p>
-      ) : (
-        <div className="space-y-3">
-          {reembolsoFran > 0 && (
-            <SocioReembolso
-              semanaId={semanaId}
-              beneficiario="fran"
-              nombre="Fran"
-              totalReembolso={reembolsoFran}
-              abonos={abonos}
-              onAbonoCreado={handleCreado}
-              onAbonoEliminado={handleEliminado}
-            />
-          )}
-          {reembolsoVeronica > 0 && (
-            <SocioReembolso
-              semanaId={semanaId}
-              beneficiario="veronica"
-              nombre="Verónica"
-              totalReembolso={reembolsoVeronica}
-              abonos={abonos}
-              onAbonoCreado={handleCreado}
-              onAbonoEliminado={handleEliminado}
-            />
+      {/* Header colapsable */}
+      <button
+        type="button"
+        onClick={() => setExpandido((s) => !s)}
+        className="w-full flex items-center justify-between hover:opacity-80 transition-opacity"
+      >
+        <h3 className="text-sm font-semibold">Reembolsos pendientes</h3>
+        <div className="flex items-center gap-3">
+          <span className={cn(
+            "text-sm font-bold",
+            totalPendiente > 0 ? "text-destructive" : "text-emerald-600 dark:text-emerald-400"
+          )}>
+            {totalPendiente > 0 ? `${formatoMoneda(totalPendiente)} pendiente` : "✓ Completo"}
+          </span>
+          {expandido ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+        </div>
+      </button>
+
+      {/* Resumen siempre visible */}
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        {reembolsoFran > 0 && (
+          <div className="rounded-lg bg-secondary/40 px-3 py-2">
+            <p className="text-xs text-muted-foreground">Fran</p>
+            <p className="font-semibold">{formatoMoneda(reembolsoFran)}</p>
+            {semanaId && (() => {
+              const abFran = abonos.filter(a => a.beneficiario === 'fran').reduce((s,a) => s + Number(a.monto), 0);
+              const pend = Math.max(0, reembolsoFran - abFran);
+              return pend > 0
+                ? <p className="text-xs text-destructive">{formatoMoneda(pend)} pendiente</p>
+                : <p className="text-xs text-emerald-600 dark:text-emerald-400">✓ Completado</p>;
+            })()}
+          </div>
+        )}
+        {reembolsoVeronica > 0 && (
+          <div className="rounded-lg bg-secondary/40 px-3 py-2">
+            <p className="text-xs text-muted-foreground">Verónica</p>
+            <p className="font-semibold">{formatoMoneda(reembolsoVeronica)}</p>
+            {semanaId && (() => {
+              const abVero = abonos.filter(a => a.beneficiario === 'veronica').reduce((s,a) => s + Number(a.monto), 0);
+              const pend = Math.max(0, reembolsoVeronica - abVero);
+              return pend > 0
+                ? <p className="text-xs text-destructive">{formatoMoneda(pend)} pendiente</p>
+                : <p className="text-xs text-emerald-600 dark:text-emerald-400">✓ Completado</p>;
+            })()}
+          </div>
+        )}
+      </div>
+
+      {/* Detalle expandible con abonos */}
+      {expandido && (
+        <div className="space-y-3 pt-1 border-t border-border/50">
+          {!semanaId ? (
+            <p className="text-xs text-muted-foreground py-1">
+              Esta semana no tiene registro activo. Los abonos solo se pueden registrar en semanas con gastos capturados.
+            </p>
+          ) : cargando ? (
+            <p className="text-xs text-muted-foreground py-2">Cargando...</p>
+          ) : (
+            <>
+              {reembolsoFran > 0 && (
+                <SocioReembolso
+                  semanaId={semanaId}
+                  beneficiario="fran"
+                  nombre="Fran"
+                  totalReembolso={reembolsoFran}
+                  abonos={abonos}
+                  onAbonoCreado={handleCreado}
+                  onAbonoEliminado={handleEliminado}
+                />
+              )}
+              {reembolsoVeronica > 0 && (
+                <SocioReembolso
+                  semanaId={semanaId}
+                  beneficiario="veronica"
+                  nombre="Verónica"
+                  totalReembolso={reembolsoVeronica}
+                  abonos={abonos}
+                  onAbonoCreado={handleCreado}
+                  onAbonoEliminado={handleEliminado}
+                />
+              )}
+            </>
           )}
         </div>
       )}
