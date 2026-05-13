@@ -4,12 +4,11 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Loader2, Trash2 } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
-import { PaymentSection } from "@/components/PaymentSection";
+import { PaymentSection, PaymentUpdates } from "@/components/PaymentSection";
 import { FinalPaymentSection, FinalPaymentUpdates } from "@/components/FinalPaymentSection";
 import { CompletarReservaModal, CompletarReservaPayload } from "@/components/CompletarReservaModal";
 import { useReservations } from "@/hooks/useReservations";
 import { toast } from "@/hooks/use-toast";
-import { PaymentMethod } from "@/types/reservation";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import {
@@ -115,13 +114,7 @@ export default function EditarReservacion() {
     }
   };
 
-  const handleUpdatePayment = async (updates: {
-    metodo_pago: PaymentMethod | null;
-    monto_pagado: number | null;
-    fecha_pago: string | null;
-    notas_pago: string | null;
-    ticket_imagen_url: string | null;
-  }) => {
+  const handleUpdatePayment = async (updates: PaymentUpdates) => {
     setIsUpdatingPayment(true);
     try {
       await updateReservation(reservation.id, updates);

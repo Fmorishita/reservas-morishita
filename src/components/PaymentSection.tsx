@@ -2,25 +2,41 @@ import { useState, useRef, useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CreditCard, Banknote, Building2, Check, Camera, Image, X, Loader2, ExternalLink } from "lucide-react";
-import { PaymentMethod, PAYMENT_METHODS, Reservation } from "@/types/reservation";
+import {
+  PaymentMethod,
+  Reservation,
+  CobradoPor,
+  TipoTarjeta,
+} from "@/types/reservation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import {
+  FinalPaymentFields,
+  FinalPaymentFieldsValue,
+  computePropinaMonto,
+  computeTotal,
+  isValid,
+} from "@/components/FinalPaymentFields";
+
+export interface PaymentUpdates {
+  metodo_pago: PaymentMethod | null;
+  monto_pagado: number | null;
+  fecha_pago: string | null;
+  notas_pago: string | null;
+  ticket_imagen_url: string | null;
+  cobrado_por: CobradoPor | null;
+  tipo_tarjeta: TipoTarjeta | null;
+  propina: number | null;
+}
 
 interface PaymentSectionProps {
   reservation: Reservation;
-  onUpdatePayment: (updates: {
-    metodo_pago: PaymentMethod | null;
-    monto_pagado: number | null;
-    fecha_pago: string | null;
-    notas_pago: string | null;
-    ticket_imagen_url: string | null;
-  }) => void;
+  onUpdatePayment: (updates: PaymentUpdates) => void;
   isUpdating?: boolean;
 }
 
@@ -36,12 +52,24 @@ interface AnalysisResult {
   error?: string;
 }
 
+function inferPropinaState(reservation: Reservation, base: number): FinalPaymentFieldsValue {
+  const propina = reservation.propina ?? 0;
+  const pct = base > 0 ? Math.round((propina / base) * 100) : 0;
+  const isCleanPct = base > 0 && Math.abs(base * (pct / 100) - propina) < 0.01;
+  return {
+    metodo: (reservation.metodo_pago as PaymentMethod | null) ?? null,
+    cobradoPor: reservation.cobrado_por ?? null,
+    tipoTarjeta: reservation.tipo_tarjeta ?? null,
+    propinaMode: isCleanPct ? "porcentaje" : "monto",
+    propinaInput: propina === 0 ? "" : isCleanPct ? pct.toString() : propina.toString(),
+  };
+}
+
 export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: PaymentSectionProps) {
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(
-    reservation.metodo_pago as PaymentMethod | null
-  );
-  const [amount, setAmount] = useState<string>(
-    reservation.monto_pagado?.toString() || ""
+  const expectedAnticipo = (reservation.numero_personas || 1) * 925;
+
+  const [value, setValue] = useState<FinalPaymentFieldsValue>(() =>
+    inferPropinaState(reservation, expectedAnticipo)
   );
   const [notes, setNotes] = useState(reservation.notas_pago || "");
   const [isEditing, setIsEditing] = useState(!reservation.metodo_pago);
@@ -67,14 +95,12 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
         setTicketSignedUrl(null);
         return;
       }
-      // If it's already a full URL (legacy public URL or signed URL), use it directly
-      if (url.startsWith('http')) {
+      if (url.startsWith("http")) {
         setTicketSignedUrl(url);
         return;
       }
-      // Otherwise it's a file path — generate a signed URL
       const { data, error } = await supabase.storage
-        .from('payment-tickets')
+        .from("payment-tickets")
         .createSignedUrl(url, 86400);
       if (!error && data) {
         setTicketSignedUrl(data.signedUrl);
@@ -83,55 +109,49 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
     getSignedUrl();
   }, [reservation.ticket_imagen_url]);
 
-  // Validation: amount is required for Efectivo and Transferencia
-  const isAmountRequired = selectedMethod === "Efectivo" || selectedMethod === "Transferencia";
-  const hasValidAmount = amount && parseFloat(amount) > 0;
-  const canSave = selectedMethod && (!isAmountRequired || hasValidAmount);
+  const canSave = isValid(value);
 
   const handleImageSelect = async (file: File) => {
     setTicketFile(file);
-    
-    // Create preview
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setTicketPreview(reader.result as string);
-    };
+    reader.onloadend = () => setTicketPreview(reader.result as string);
     reader.readAsDataURL(file);
 
-    // Analyze image with AI
     setIsAnalyzing(true);
     setAnalysisResult(null);
 
     try {
-      // Convert to base64
       const base64 = await new Promise<string>((resolve) => {
         const r = new FileReader();
         r.onloadend = () => resolve(r.result as string);
         r.readAsDataURL(file);
       });
 
-      const { data, error } = await supabase.functions.invoke('extract-ticket-amount', {
-        body: { imageBase64: base64 }
+      const { data, error } = await supabase.functions.invoke("extract-ticket-amount", {
+        body: { imageBase64: base64 },
       });
 
       if (error) {
-        console.error('Error analyzing ticket:', error);
-        setAnalysisResult({ monto: null, error: 'Error al analizar el ticket' });
+        console.error("Error analyzing ticket:", error);
+        setAnalysisResult({ monto: null, error: "Error al analizar el ticket" });
       } else if (data) {
         setAnalysisResult(data as AnalysisResult);
-        
-        // Auto-fill amount if detected with high/medium confidence
-        if (data.monto && (data.confianza === 'alta' || data.confianza === 'media')) {
-          setAmount(data.monto.toString());
+        if (data.monto && (data.confianza === "alta" || data.confianza === "media")) {
+          // Si el monto detectado es mayor que la base, lo metemos como propina
+          const detectado = data.monto as number;
+          if (detectado > expectedAnticipo) {
+            const propina = detectado - expectedAnticipo;
+            setValue((v) => ({ ...v, propinaMode: "monto", propinaInput: propina.toString() }));
+          }
           toast({
             title: "Monto detectado",
-            description: `Se encontró: $${data.monto.toLocaleString('es-MX')} (confianza ${data.confianza})`,
+            description: `Se encontró: $${detectado.toLocaleString("es-MX")} (confianza ${data.confianza})`,
           });
         }
       }
     } catch (err) {
-      console.error('Error calling extract-ticket-amount:', err);
-      setAnalysisResult({ monto: null, error: 'Error al conectar con el servicio de análisis' });
+      console.error("Error calling extract-ticket-amount:", err);
+      setAnalysisResult({ monto: null, error: "Error al conectar con el servicio de análisis" });
     } finally {
       setIsAnalyzing(false);
     }
@@ -142,8 +162,7 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
     if (file) {
       handleImageSelect(file);
     }
-    // Reset input so the same file can be selected again
-    e.target.value = '';
+    e.target.value = "";
   };
 
   const handleRemoveImage = () => {
@@ -153,30 +172,26 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
   };
 
   const uploadTicketImage = async (): Promise<string | null> => {
-    if (!ticketFile) return reservation.ticket_imagen_url; // Return existing path if no new file
+    if (!ticketFile) return reservation.ticket_imagen_url;
 
     setIsUploading(true);
     try {
-      const fileExt = ticketFile.name.split('.').pop();
+      const fileExt = ticketFile.name.split(".").pop();
       const fileName = `${reservation.id}-${Date.now()}.${fileExt}`;
       const filePath = fileName;
 
       const { error: uploadError } = await supabase.storage
-        .from('payment-tickets')
-        .upload(filePath, ticketFile, {
-          cacheControl: '3600',
-          upsert: true
-        });
+        .from("payment-tickets")
+        .upload(filePath, ticketFile, { cacheControl: "3600", upsert: true });
 
       if (uploadError) {
-        console.error('Error uploading ticket:', uploadError);
+        console.error("Error uploading ticket:", uploadError);
         throw uploadError;
       }
 
-      // Store just the file path — signed URLs are generated on read
       return filePath;
     } catch (err) {
-      console.error('Error in uploadTicketImage:', err);
+      console.error("Error in uploadTicketImage:", err);
       toast({
         title: "Error",
         description: "No se pudo subir la imagen del ticket",
@@ -189,22 +204,27 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
   };
 
   const handleSave = async () => {
-    if (!selectedMethod) return;
-    
-    // Upload image first if there's a new file
+    if (!value.metodo) return;
+
     let ticketUrl = reservation.ticket_imagen_url;
     if (ticketFile) {
       ticketUrl = await uploadTicketImage();
-    } else if (!ticketPreview) {
+    } else if (!ticketPreview && !reservation.ticket_imagen_url) {
       ticketUrl = null;
     }
-    
+
+    const propina = computePropinaMonto(value, expectedAnticipo);
+    const total = computeTotal(value, expectedAnticipo);
+
     onUpdatePayment({
-      metodo_pago: selectedMethod,
-      monto_pagado: amount ? parseFloat(amount) : null,
-      fecha_pago: new Date().toISOString(),
+      metodo_pago: value.metodo,
+      monto_pagado: total,
+      fecha_pago: reservation.fecha_pago || new Date().toISOString(),
       notas_pago: notes || null,
       ticket_imagen_url: ticketUrl,
+      cobrado_por: value.metodo === "Efectivo" ? value.cobradoPor : null,
+      tipo_tarjeta: value.metodo === "Terminal" ? value.tipoTarjeta : null,
+      propina,
     });
     setIsEditing(false);
   };
@@ -216,23 +236,23 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
       fecha_pago: null,
       notas_pago: null,
       ticket_imagen_url: null,
+      cobrado_por: null,
+      tipo_tarjeta: null,
+      propina: null,
     });
-    setSelectedMethod(null);
-    setAmount("");
+    setValue({
+      metodo: null,
+      cobradoPor: null,
+      tipoTarjeta: null,
+      propinaMode: "porcentaje",
+      propinaInput: "",
+    });
     setNotes("");
     setTicketFile(null);
     setTicketPreview(null);
     setAnalysisResult(null);
     setIsEditing(true);
   };
-
-  const handleUseDetectedAmount = () => {
-    if (analysisResult?.monto) {
-      setAmount(analysisResult.monto.toString());
-    }
-  };
-
-  const expectedAnticipo = (reservation.numero_personas || 1) * 925;
 
   if (isPaid && !isEditing) {
     return (
@@ -242,7 +262,14 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
             <Check className="w-5 h-5 text-success" />
             <span className="font-medium text-success">Anticipo pagado (50%)</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setValue(inferPropinaState(reservation, expectedAnticipo));
+              setIsEditing(true);
+            }}
+          >
             Editar
           </Button>
         </div>
@@ -250,15 +277,35 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
           <div className="flex items-center gap-2">
             {paymentIcons[reservation.metodo_pago as PaymentMethod]}
             <span>{reservation.metodo_pago}</span>
+            {reservation.metodo_pago === "Terminal" && reservation.tipo_tarjeta && (
+              <span className="text-xs text-muted-foreground">
+                · {reservation.tipo_tarjeta === "credito" ? "Crédito" : "Débito"}
+              </span>
+            )}
           </div>
-          {reservation.monto_pagado && (
+          {reservation.metodo_pago === "Efectivo" && reservation.cobrado_por && (
+            <p className="text-muted-foreground">
+              Cobrado por: {reservation.cobrado_por === "veronica" ? "Verónica" : "Fran"}
+            </p>
+          )}
+          {reservation.monto_pagado != null && (
             <p className="text-muted-foreground">
               Monto: ${reservation.monto_pagado.toLocaleString("es-MX")}
             </p>
           )}
+          {reservation.propina != null && reservation.propina > 0 && (
+            <p className="text-muted-foreground">
+              Propina: $
+              {reservation.propina.toLocaleString("es-MX", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </p>
+          )}
           {reservation.fecha_pago && (
             <p className="text-muted-foreground">
-              Fecha: {format(new Date(reservation.fecha_pago), "d MMM yyyy, HH:mm", { locale: es })}
+              Fecha:{" "}
+              {format(new Date(reservation.fecha_pago), "d MMM yyyy, HH:mm", { locale: es })}
             </p>
           )}
           {reservation.notas_pago && (
@@ -266,18 +313,17 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
           )}
         </div>
 
-        {/* Ticket image preview */}
         {ticketSignedUrl && (
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Ticket adjunto</Label>
-            <a 
-              href={ticketSignedUrl} 
-              target="_blank" 
+            <a
+              href={ticketSignedUrl}
+              target="_blank"
               rel="noopener noreferrer"
               className="block relative group"
             >
-              <img 
-                src={ticketSignedUrl} 
+              <img
+                src={ticketSignedUrl}
                 alt="Ticket de pago"
                 className="w-full max-w-[200px] h-auto rounded-md border border-border object-cover"
               />
@@ -328,30 +374,13 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
         className="hidden"
       />
 
-      {/* Payment method selector */}
-      <div className="grid grid-cols-3 gap-2">
-        {PAYMENT_METHODS.map((method) => (
-          <Button
-            key={method}
-            type="button"
-            variant={selectedMethod === method ? "default" : "outline"}
-            className={cn(
-              "flex flex-col items-center gap-1 h-auto py-3",
-              selectedMethod === method && "bg-primary text-primary-foreground"
-            )}
-            onClick={() => setSelectedMethod(method)}
-          >
-            {paymentIcons[method]}
-            <span className="text-xs">{method}</span>
-          </Button>
-        ))}
-      </div>
+      <FinalPaymentFields base={expectedAnticipo} value={value} onChange={setValue} />
 
-      {/* Ticket image upload for Terminal (Cohete) */}
-      {selectedMethod === "Terminal" && (
+      {/* Ticket image upload for Terminal */}
+      {value.metodo === "Terminal" && (
         <div className="space-y-3 p-3 rounded-lg bg-background border border-border">
           <Label className="text-sm">Foto del ticket (opcional)</Label>
-          
+
           {!ticketPreview ? (
             <div className="grid grid-cols-2 gap-2">
               <Button
@@ -375,10 +404,9 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Image preview */}
               <div className="relative">
-                <img 
-                  src={ticketPreview} 
+                <img
+                  src={ticketPreview}
                   alt="Vista previa del ticket"
                   className="w-full max-h-[200px] object-contain rounded-md border border-border"
                 />
@@ -393,7 +421,6 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
                 </Button>
               </div>
 
-              {/* Analysis status */}
               {isAnalyzing && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -401,41 +428,33 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
                 </div>
               )}
 
-              {/* Analysis result */}
               {analysisResult && !isAnalyzing && (
-                <div className={cn(
-                  "p-3 rounded-md text-sm",
-                  analysisResult.monto 
-                    ? "bg-success/10 border border-success/30" 
-                    : "bg-warning/10 border border-warning/30"
-                )}>
+                <div
+                  className={cn(
+                    "p-3 rounded-md text-sm",
+                    analysisResult.monto
+                      ? "bg-success/10 border border-success/30"
+                      : "bg-warning/10 border border-warning/30"
+                  )}
+                >
                   {analysisResult.monto ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-success" />
-                        <span>
-                          Monto detectado: <strong>${analysisResult.monto.toLocaleString('es-MX')}</strong>
-                        </span>
-                        {analysisResult.confianza && (
-                          <Badge variant="outline" className={cn(
-                            "text-xs",
-                            analysisResult.confianza === 'alta' && "border-success text-success",
-                            analysisResult.confianza === 'media' && "border-warning text-warning",
-                            analysisResult.confianza === 'baja' && "border-muted-foreground text-muted-foreground"
-                          )}>
-                            {analysisResult.confianza}
-                          </Badge>
-                        )}
-                      </div>
-                      {amount !== analysisResult.monto.toString() && (
-                        <Button
-                          type="button"
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-success" />
+                      <span>
+                        Monto detectado: <strong>${analysisResult.monto.toLocaleString("es-MX")}</strong>
+                      </span>
+                      {analysisResult.confianza && (
+                        <Badge
                           variant="outline"
-                          size="sm"
-                          onClick={handleUseDetectedAmount}
+                          className={cn(
+                            "text-xs",
+                            analysisResult.confianza === "alta" && "border-success text-success",
+                            analysisResult.confianza === "media" && "border-warning text-warning",
+                            analysisResult.confianza === "baja" && "border-muted-foreground text-muted-foreground"
+                          )}
                         >
-                          Usar este monto
-                        </Button>
+                          {analysisResult.confianza}
+                        </Badge>
                       )}
                     </div>
                   ) : (
@@ -449,28 +468,6 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
           )}
         </div>
       )}
-
-      {/* Amount input */}
-      <div className="space-y-2">
-        <Label>
-          Monto {isAmountRequired ? "(requerido)" : "(opcional)"}
-        </Label>
-        <Input
-          type="number"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="0.00"
-          className={cn(
-            "text-right",
-            isAmountRequired && !hasValidAmount && "border-warning"
-          )}
-        />
-        {isAmountRequired && !hasValidAmount && selectedMethod && (
-          <p className="text-xs text-warning">
-            El monto es obligatorio para pagos en {selectedMethod}
-          </p>
-        )}
-      </div>
 
       {/* Notes */}
       <div className="space-y-2">
@@ -489,7 +486,10 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
           <Button
             type="button"
             variant="outline"
-            onClick={() => setIsEditing(false)}
+            onClick={() => {
+              setValue(inferPropinaState(reservation, expectedAnticipo));
+              setIsEditing(false);
+            }}
             className="flex-1"
           >
             Cancelar
@@ -501,7 +501,7 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
           disabled={!canSave || isUpdating || isUploading || isAnalyzing}
           className="flex-1"
         >
-          {(isUpdating || isUploading) ? (
+          {isUpdating || isUploading ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Guardando...

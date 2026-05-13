@@ -25,6 +25,9 @@ export interface Reservation {
   fecha_pago: string | null;
   notas_pago: string | null;
   ticket_imagen_url: string | null;
+  cobrado_por: CobradoPor | null;
+  tipo_tarjeta: TipoTarjeta | null;
+  propina: number | null;
   // Payment fields — Pago final (50%)
   metodo_pago_final: PaymentMethod | null;
   monto_final_pagado: number | null;
