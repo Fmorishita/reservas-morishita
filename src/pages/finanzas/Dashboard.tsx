@@ -285,7 +285,7 @@ export default function FinanzasDashboard() {
           />
           <MetricCard
             icon={<Wallet className="w-4 h-4" />}
-            label="A repartir"
+            label="Repartición entre socios"
             value={formatoMoneda(corte.utilidad_distribuible)}
             tone="neutral"
           />
