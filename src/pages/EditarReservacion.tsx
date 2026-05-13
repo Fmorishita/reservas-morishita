@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { format } from "date-fns";
-import { Loader2 } from "lucide-react";
+import { es } from "date-fns/locale";
+import { Loader2, Trash2 } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
 import { PaymentSection } from "@/components/PaymentSection";
 import { FinalPaymentSection } from "@/components/FinalPaymentSection";
@@ -9,15 +10,28 @@ import { useReservations } from "@/hooks/useReservations";
 import { toast } from "@/hooks/use-toast";
 import { PaymentMethod } from "@/types/reservation";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function EditarReservacion() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const { reservations, isLoading, updateReservation, canAddReservation, extraSlots } = useReservations();
+  const { reservations, isLoading, updateReservation, deleteReservation, canAddReservation, extraSlots } = useReservations();
   const [validationError, setValidationError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
   const [isUpdatingFinalPayment, setIsUpdatingFinalPayment] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (isLoading) {
     return (
@@ -132,10 +146,30 @@ export default function EditarReservacion() {
     }
   };
 
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteReservation(reservation.id);
+      toast({
+        title: "Reservación eliminada",
+        description: `Se eliminó la reservación de ${reservation.nombre_cliente}`,
+      });
+      navigate("/lista");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la reservación",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="max-w-lg mx-auto space-y-6 md:pt-14 pb-24">
       <h1 className="text-2xl font-medium">Editar reservación</h1>
-      
+
       <PaymentSection
         reservation={reservation}
         onUpdatePayment={handleUpdatePayment}
@@ -158,6 +192,45 @@ export default function EditarReservacion() {
         validationError={validationError}
         isSubmitting={isSubmitting}
       />
+
+      <Separator />
+
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button
+            variant="ghost"
+            className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 gap-2"
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+            Eliminar reservación
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar reservación?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará permanentemente la reservación de{" "}
+              <strong>{reservation.nombre_cliente}</strong> del{" "}
+              {format(new Date(reservation.fecha + "T12:00:00"), "d 'de' MMMM", { locale: es })}.
+              Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sí, eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

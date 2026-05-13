@@ -159,6 +159,18 @@ export function useReservations() {
     await updateReservation(id, { estado: "Cancelada" });
   }, [updateReservation]);
 
+  const deleteReservation = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from("reservations")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error deleting reservation:", error);
+      throw error;
+    }
+  }, []);
+
   const addBlock = useCallback(async (block: Omit<TimeBlock, "id" | "created_at">) => {
     const { data, error } = await supabase
       .from("time_blocks")
@@ -263,6 +275,7 @@ export function useReservations() {
     addReservation,
     updateReservation,
     cancelReservation,
+    deleteReservation,
     addBlock,
     removeBlock,
     addExtraSlot,
