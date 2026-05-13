@@ -9,6 +9,7 @@ import {
   TipoTarjeta,
 } from "@/types/reservation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +67,14 @@ function inferPropinaState(reservation: Reservation, base: number): FinalPayment
 }
 
 export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: PaymentSectionProps) {
-  const expectedAnticipo = (reservation.numero_personas || 1) * 925;
+  const defaultAnticipo = (reservation.numero_personas || 1) * 925;
+  // Base editable: inicializa con el monto ya pagado (si existe) o el default
+  const [baseInput, setBaseInput] = useState<string>(
+    () => (reservation.monto_pagado != null
+      ? (reservation.monto_pagado - (reservation.propina ?? 0)).toString()
+      : defaultAnticipo.toString())
+  );
+  const expectedAnticipo = Math.max(0, parseFloat(baseInput) || 0);
 
   const [value, setValue] = useState<FinalPaymentFieldsValue>(() =>
     inferPropinaState(reservation, expectedAnticipo)
@@ -266,7 +274,11 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
             variant="ghost"
             size="sm"
             onClick={() => {
-              setValue(inferPropinaState(reservation, expectedAnticipo));
+              const base = reservation.monto_pagado != null
+                ? reservation.monto_pagado - (reservation.propina ?? 0)
+                : defaultAnticipo;
+              setBaseInput(base.toString());
+              setValue(inferPropinaState(reservation, base));
               setIsEditing(true);
             }}
           >
@@ -344,17 +356,34 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
   return (
     <div className="space-y-4 p-4 rounded-lg bg-muted/50 border border-border">
       <div className="flex items-center justify-between">
-        <div>
-          <Label className="text-base font-medium">Anticipo (50%)</Label>
-          <p className="text-xs text-muted-foreground">
-            Esperado: ${expectedAnticipo.toLocaleString("es-MX")}
-          </p>
-        </div>
+        <Label className="text-base font-medium">Anticipo (50%)</Label>
         {!isPaid && (
           <Badge variant="outline" className="text-warning border-warning">
             Sin pagar
           </Badge>
         )}
+      </div>
+
+      {/* Monto base editable */}
+      <div className="space-y-1">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm">Monto base</Label>
+          <span className="text-xs text-muted-foreground">
+            Default: ${defaultAnticipo.toLocaleString("es-MX")} ({reservation.numero_personas} × $925)
+          </span>
+        </div>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min="0"
+            value={baseInput}
+            onChange={(e) => setBaseInput(e.target.value)}
+            className="pl-7 text-right"
+            placeholder={defaultAnticipo.toString()}
+          />
+        </div>
       </div>
 
       {/* Hidden file inputs */}
@@ -487,7 +516,11 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
             type="button"
             variant="outline"
             onClick={() => {
-              setValue(inferPropinaState(reservation, expectedAnticipo));
+              const base = reservation.monto_pagado != null
+                ? reservation.monto_pagado - (reservation.propina ?? 0)
+                : defaultAnticipo;
+              setBaseInput(base.toString());
+              setValue(inferPropinaState(reservation, base));
               setIsEditing(false);
             }}
             className="flex-1"
