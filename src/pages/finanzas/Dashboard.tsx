@@ -283,12 +283,22 @@ export default function FinanzasDashboard() {
             value={formatoMoneda(corte.utilidad_bruta)}
             tone={corte.utilidad_bruta >= 0 ? "emerald" : "red"}
           />
-          <MetricCard
-            icon={<Wallet className="w-4 h-4" />}
-            label="Repartición entre socios"
-            value={formatoMoneda(corte.utilidad_distribuible)}
-            tone="neutral"
-          />
+          <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Wallet className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Repartición entre socios</h3>
+            </div>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Fran</span>
+                <span className="font-medium">{formatoMoneda(corte.fran_recibe)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Verónica</span>
+                <span className="font-medium">{formatoMoneda(corte.veronica_recibe)}</span>
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
 
