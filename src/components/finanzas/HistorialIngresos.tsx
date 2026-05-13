@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ChevronDown, Banknote, CreditCard, ArrowDownToLine, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ChevronDown, Banknote, CreditCard, ArrowDownToLine, Users, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatoMoneda, formatoFecha } from "@/lib/finanzas/formato";
 import type { MovimientoIngreso } from "@/lib/finanzas/types";
@@ -20,6 +21,15 @@ function iconoMetodo(metodo: string) {
 
 export function HistorialIngresos({ movimientos }: { movimientos: MovimientoIngreso[] }) {
   const [abierto, setAbierto] = useState(true);
+  const navigate = useNavigate();
+
+  const handleClickMovimiento = (m: MovimientoIngreso) => {
+    if (m.reserva_id) {
+      // Anticipo o pago final de reserva → ir a editar la reserva
+      navigate(`/editar/${m.reserva_id}`);
+    }
+    // Ingresos manuales (walk-ins) no tienen pantalla de edición propia todavía
+  };
 
   if (movimientos.length === 0) {
     return (
@@ -71,7 +81,14 @@ export function HistorialIngresos({ movimientos }: { movimientos: MovimientoIngr
                   {items.map((m) => {
                     const badge = TIPO_BADGE[m.tipo];
                     return (
-                      <li key={m.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                      <li
+                        key={m.id}
+                        onClick={() => handleClickMovimiento(m)}
+                        className={cn(
+                          "px-4 py-3 flex items-start justify-between gap-3 transition-colors",
+                          m.reserva_id && "cursor-pointer hover:bg-secondary/40 active:bg-secondary/60"
+                        )}
+                      >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className={cn("text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded font-medium", badge.cls)}>
@@ -91,9 +108,14 @@ export function HistorialIngresos({ movimientos }: { movimientos: MovimientoIngr
                             <p className="text-xs text-muted-foreground truncate">{m.tipo_menu}</p>
                           )}
                         </div>
-                        <span className="text-sm font-semibold tabular-nums whitespace-nowrap">
-                          {formatoMoneda(Number(m.monto))}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-sm font-semibold tabular-nums whitespace-nowrap">
+                            {formatoMoneda(Number(m.monto))}
+                          </span>
+                          {m.reserva_id && (
+                            <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                          )}
+                        </div>
                       </li>
                     );
                   })}

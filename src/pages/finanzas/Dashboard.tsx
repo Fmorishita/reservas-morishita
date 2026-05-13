@@ -255,7 +255,12 @@ export default function FinanzasDashboard() {
             label="Ingresos"
             value={formatoMoneda(corte.ingresos_totales)}
             tone="emerald"
-            sub={`${data?.movimientos.length ?? 0} movs.`}
+            sub={`${data?.movimientos.length ?? 0} movs. · ver detalle`}
+            onClick={() => {
+              document
+                .getElementById("historial-ventas")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
           />
           <MetricCard
             icon={<TrendingDown className="w-4 h-4" />}
@@ -303,7 +308,9 @@ export default function FinanzasDashboard() {
 
       {/* Historial de ventas */}
       {!isLoading && data && (
-        <HistorialIngresos movimientos={data.movimientos} />
+        <div id="historial-ventas">
+          <HistorialIngresos movimientos={data.movimientos} />
+        </div>
       )}
 
       {/* Historial de gastos */}
