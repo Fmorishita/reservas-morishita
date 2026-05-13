@@ -62,7 +62,7 @@ export function CompletarReservaModal({
       await onConfirm({
         metodo_pago_final: value.metodo,
         monto_final_pagado: total,
-        fecha_pago_final: new Date().toISOString(),
+        fecha_pago_final: reservation.fecha,
         cobrado_por_final: value.metodo === "Efectivo" ? value.cobradoPor : null,
         tipo_tarjeta_final: value.metodo === "Terminal" ? value.tipoTarjeta : null,
         propina_final: propina,

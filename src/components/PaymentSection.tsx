@@ -227,7 +227,7 @@ export function PaymentSection({ reservation, onUpdatePayment, isUpdating }: Pay
     onUpdatePayment({
       metodo_pago: value.metodo,
       monto_pagado: total,
-      fecha_pago: reservation.fecha_pago || new Date().toISOString(),
+      fecha_pago: reservation.fecha_pago || reservation.fecha,
       notas_pago: notes || null,
       ticket_imagen_url: ticketUrl,
       cobrado_por: value.metodo === "Efectivo" ? value.cobradoPor : null,
