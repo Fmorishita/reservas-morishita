@@ -196,13 +196,13 @@ export default function FinanzasDashboard() {
       {/* Acciones rápidas + export */}
       <div className="grid grid-cols-3 gap-2">
         <Button asChild variant="outline" className="h-12 text-xs flex-col gap-0.5">
-          <Link to="/finanzas/ingresos/nuevo">
+          <Link to={`/finanzas/ingresos/nuevo?inicio=${inicio}&fin=${fin}`}>
             <Plus className="w-4 h-4 text-emerald-600" />
             Ingreso
           </Link>
         </Button>
         <Button asChild variant="outline" className="h-12 text-xs flex-col gap-0.5">
-          <Link to="/finanzas/gastos/nuevo">
+          <Link to={`/finanzas/gastos/nuevo?inicio=${inicio}&fin=${fin}`}>
             <Minus className="w-4 h-4 text-destructive" />
             Gasto
           </Link>

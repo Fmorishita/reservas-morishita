@@ -1,20 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { GastoForm } from "@/components/finanzas/GastoForm";
-import { obtenerOCrearSemanaActual } from "@/lib/finanzas/queries";
+import { obtenerOCrearSemanaActual, obtenerOCrearSemanaParaFecha } from "@/lib/finanzas/queries";
 import { rangoSemana } from "@/lib/finanzas/formato";
 
 export default function NuevoGasto() {
+  const [searchParams] = useSearchParams();
+  const inicioParam = searchParams.get("inicio");
+
   const { data: semana, isLoading, error } = useQuery({
-    queryKey: ["finanzas-semana-actual"],
-    queryFn: obtenerOCrearSemanaActual,
+    queryKey: ["finanzas-semana", inicioParam ?? "actual"],
+    queryFn: inicioParam
+      ? () => obtenerOCrearSemanaParaFecha(new Date(inicioParam + "T12:00:00"))
+      : obtenerOCrearSemanaActual,
     staleTime: 60_000,
   });
 
   return (
     <div className="max-w-lg mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <Link to="/finanzas" className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-5 h-5" />
