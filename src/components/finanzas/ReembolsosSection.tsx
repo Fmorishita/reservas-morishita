@@ -332,7 +332,7 @@ export function ReembolsosSection({ semanaId, reembolsoFran, reembolsoVeronica }
         <div className="space-y-3 pt-2 border-t border-border/50">
           {!semanaId ? (
             <p className="text-xs text-muted-foreground">
-              No se pueden registrar abonos en semanas sin gastos capturados.
+              Registra el primer gasto o ingreso de esta semana para activar el seguimiento de abonos de reembolso.
             </p>
           ) : cargando ? (
             <p className="text-xs text-muted-foreground">Cargando abonos...</p>

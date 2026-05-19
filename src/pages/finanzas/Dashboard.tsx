@@ -110,11 +110,13 @@ export default function FinanzasDashboard() {
     cerrada_en: null,
   };
 
-  // Intentar obtener semana_id: primero del row de semanas, luego del primer gasto
+  // semana_id de la semana que el usuario está viendo.
+  // NUNCA heredar de los gastos: si la semana no tiene row, queda null y
+  // ReembolsosSection mostrará el resumen sin abonos de otras semanas.
   const semanaId: string | null =
     data?.semana?.id && data.semana.id !== "synthetic"
       ? data.semana.id
-      : data?.gastos?.[0]?.semana_id ?? null;
+      : null;
 
   const corte = data
     ? calcularCorteSemanal({
